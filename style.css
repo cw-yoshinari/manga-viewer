@@ -72,13 +72,73 @@ body.dark-mode {
     justify-content: center;
     align-items: center;
     gap: 10px;
-    transition: transform var(--animation-speed) ease-in-out, opacity var(--animation-speed) ease-in-out;
     position: relative;
+}
+
+/* スライドアニメーション用 */
+.page-container.slide-out-left {
+    animation: slideOutLeft var(--animation-speed) ease-in-out forwards;
+}
+
+.page-container.slide-out-right {
+    animation: slideOutRight var(--animation-speed) ease-in-out forwards;
+}
+
+.page-container.slide-in-left {
+    animation: slideInLeft var(--animation-speed) ease-in-out forwards;
+}
+
+.page-container.slide-in-right {
+    animation: slideInRight var(--animation-speed) ease-in-out forwards;
+}
+
+@keyframes slideOutLeft {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 .page-container img {
     max-width: 100%;
-    max-height: 100vh;
+    max-height: calc(100vh - 100px); /* コントロールパネル分を引く */
     object-fit: contain;
     display: block;
     pointer-events: none;
@@ -168,6 +228,43 @@ body.dark-mode .control-panel {
     pointer-events: none;
 }
 
+
+.control-panel.minimized {
+    padding: 5px 10px;
+    gap: 5px;
+}
+
+.control-panel.minimized .control-btn:not(.expand-btn) {
+    display: none;
+}
+
+.expand-btn {
+    display: flex; /* デスクトップでは常に表示 */
+}
+
+/* モバイルでは最小化時のみ表示 */
+@media (max-width: 767px) {
+    .expand-btn {
+        display: none;
+    }
+    
+    .control-panel:not(.expanded) .expand-btn,
+    .control-panel.expanded .expand-btn {
+        display: flex;
+    }
+}
+
+/* 展開ボタンのアイコン回転 */
+/* デフォルトは▲（上向き）なので、展開時に▼（下向き）に回転 */
+.control-panel:not(.minimized) .expand-btn svg {
+    transform: rotate(180deg); /* 展開時は▼下向き */
+}
+
+/* モバイル：展開時は▼下向き */
+.control-panel.expanded .expand-btn svg {
+    transform: rotate(180deg);
+}
+
 .control-btn {
     background: none;
     border: none;
@@ -195,6 +292,12 @@ body.dark-mode .control-btn:hover {
 
 .control-btn:active {
     transform: scale(0.95);
+}
+
+.control-btn.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .control-btn svg {
@@ -513,19 +616,54 @@ body.dark-mode .setting-item input[type="number"] {
         max-width: 100%;
     }
     
+    .page-container img {
+        max-height: calc(100vh - 80px); /* モバイルはより小さい余白 */
+    }
+    
     .control-panel {
         bottom: 10px;
         padding: 8px 15px;
         gap: 5px;
     }
     
+    /* モバイルでは常に最小化 */
+    .control-panel:not(.expanded) {
+        padding: 8px;
+        border-radius: 50%;
+        background-color: rgba(76, 175, 80, 0.9);
+    }
+    
+    .control-panel:not(.expanded) .control-btn:not(.expand-btn) {
+        display: none;
+    }
+    
+    .control-panel:not(.expanded) .expand-btn {
+        color: white;
+    }
+    
+    .control-panel.expanded {
+        padding: 8px 15px;
+        border-radius: 50px;
+    }
+    
     .control-btn {
         padding: 6px;
+        min-width: 44px; /* タッチ対応 */
+        min-height: 44px;
     }
     
     .control-btn svg {
         width: 20px;
         height: 20px;
+    }
+    
+    .expand-btn {
+        display: none;
+    }
+    
+    .control-panel:not(.expanded) .expand-btn,
+    .control-panel.expanded .expand-btn {
+        display: flex;
     }
     
     .thumbnail-grid {

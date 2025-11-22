@@ -20,6 +20,12 @@ class MangaViewer {
         this.touchStart = { x: 0, y: 0 };
         this.touchStartDistance = 0;
         this.initialZoom = 1.0;
+        this.touchHandled = false; // タッチイベントが処理されたかどうか
+        
+        // コントロールパネル自動非表示用
+        this.controlPanelTimeout = null;
+        this.isControlPanelMinimized = false;
+        this.isControlPanelExpanded = false;
         
         this.init();
     }
@@ -39,6 +45,7 @@ class MangaViewer {
         this.pageInfo = document.getElementById('page-info');
         this.viewer = document.getElementById('viewer');
         this.viewerContainer = document.getElementById('viewer-container');
+        this.controlPanel = document.getElementById('control-panel');
         
         // ダークモードの適用
         if (this.isDarkMode) {
@@ -47,6 +54,14 @@ class MangaViewer {
         
         // アニメーション速度の適用
         document.documentElement.style.setProperty('--animation-speed', `${this.animationSpeed}s`);
+        
+        // デスクトップでは初期状態で最小化
+        if (!this.isMobile()) {
+            this.controlPanel.classList.add('minimized');
+            this.isControlPanelMinimized = true;
+        } else {
+            this.isControlPanelExpanded = false;
+        }
     }
     
     setupEventListeners() {
@@ -58,6 +73,7 @@ class MangaViewer {
         document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
         document.getElementById('settings-btn').addEventListener('click', () => this.toggleSettingsPanel());
         document.getElementById('darkmode-btn').addEventListener('click', () => this.toggleDarkMode());
+        document.getElementById('expand-btn').addEventListener('click', () => this.toggleControlPanel());
         
         // パネル閉じるボタン
         document.getElementById('thumbnail-close-btn').addEventListener('click', () => this.toggleThumbnailPanel());
@@ -97,10 +113,60 @@ class MangaViewer {
         
         // ウィンドウリサイズ
         window.addEventListener('resize', () => this.handleResize());
+        
+        // マウス移動での自動展開は廃止
     }
     
-    displayPage() {
-        this.pageContainer.innerHTML = '';
+    isMobile() {
+        return window.innerWidth < 768;
+    }
+    
+    
+    toggleControlPanel() {
+        if (this.isMobile()) {
+            // モバイル：展開/縮小切替
+            this.isControlPanelExpanded = !this.isControlPanelExpanded;
+            if (this.isControlPanelExpanded) {
+                this.controlPanel.classList.add('expanded');
+                // 3秒後に自動縮小
+                if (this.controlPanelTimeout) {
+                    clearTimeout(this.controlPanelTimeout);
+                }
+                this.controlPanelTimeout = setTimeout(() => {
+                    this.isControlPanelExpanded = false;
+                    this.controlPanel.classList.remove('expanded');
+                }, 3000);
+            } else {
+                this.controlPanel.classList.remove('expanded');
+            }
+        } else {
+            // デスクトップ：最小化/展開切替
+            this.isControlPanelMinimized = !this.isControlPanelMinimized;
+            if (this.isControlPanelMinimized) {
+                // 手動で最小化
+                this.controlPanel.classList.add('minimized');
+                // タイマーをクリア
+                if (this.controlPanelTimeout) {
+                    clearTimeout(this.controlPanelTimeout);
+                }
+            } else {
+                // 手動で展開
+                this.controlPanel.classList.remove('minimized');
+                // 展開したら3秒後に自動最小化
+                if (this.controlPanelTimeout) {
+                    clearTimeout(this.controlPanelTimeout);
+                }
+                this.controlPanelTimeout = setTimeout(() => {
+                    this.controlPanel.classList.add('minimized');
+                    this.isControlPanelMinimized = true;
+                }, 3000);
+            }
+            this.saveSettings();
+        }
+    }
+    
+    displayPage(direction = null) {
+        // アニメーションクラスを削除
         this.pageContainer.className = `page-container ${this.viewMode}-mode`;
         
         // ズームとパンのリセット
@@ -108,6 +174,19 @@ class MangaViewer {
             this.pageContainer.style.transform = '';
         } else {
             this.pageContainer.style.transform = `scale(${this.zoom}) translate(${this.panOffset.x}px, ${this.panOffset.y}px)`;
+        }
+        
+        this.pageContainer.innerHTML = '';
+        
+        // スライドアニメーション（方向が指定されている場合）
+        // ブラウザに強制的にリフローさせてからアニメーションを開始
+        if (direction) {
+            // リフローを強制
+            void this.pageContainer.offsetWidth;
+            // 次のフレームでアニメーションクラスを追加
+            requestAnimationFrame(() => {
+                this.pageContainer.classList.add(direction);
+            });
         }
         
         if (this.viewMode === 'single') {
@@ -147,6 +226,7 @@ class MangaViewer {
         
         this.updateProgress();
         this.updateThumbnailHighlight();
+        this.updateButtonStates();
     }
     
     updateProgress() {
@@ -155,32 +235,103 @@ class MangaViewer {
         this.pageInfo.textContent = `${this.currentPage + 1}/${this.images.length}`;
     }
     
-    nextPage() {
+    canGoNext() {
         if (this.viewMode === 'spread' && window.innerWidth >= 768) {
-            // 見開き表示では2ページ進む
-            this.currentPage = Math.min(this.currentPage + 2, this.images.length - 1);
+            // 見開き表示：次のページペアが存在するか
+            return this.currentPage + 2 < this.images.length;
         } else {
-            this.currentPage = Math.min(this.currentPage + 1, this.images.length - 1);
+            // 単ページ表示：次のページが存在するか
+            return this.currentPage + 1 < this.images.length;
         }
-        this.displayPage();
-        this.saveBookmark();
+    }
+    
+    canGoPrev() {
+        return this.currentPage > 0;
+    }
+    
+    nextPage() {
+        if (!this.canGoNext()) {
+            return;
+        }
+        
+        // スライドアウトアニメーション（右へ）
+        this.pageContainer.classList.add('slide-out-right');
+        
+        setTimeout(() => {
+            if (this.viewMode === 'spread' && window.innerWidth >= 768) {
+                // 見開き表示では2ページ進む
+                this.currentPage = Math.min(this.currentPage + 2, this.images.length - 1);
+            } else {
+                this.currentPage = Math.min(this.currentPage + 1, this.images.length - 1);
+            }
+            // スライドインアニメーション（左から）
+            this.displayPage('slide-in-left');
+            this.saveBookmark();
+        }, this.animationSpeed * 1000);
     }
     
     prevPage() {
-        if (this.viewMode === 'spread' && window.innerWidth >= 768) {
-            // 見開き表示では2ページ戻る
-            this.currentPage = Math.max(this.currentPage - 2, 0);
-        } else {
-            this.currentPage = Math.max(this.currentPage - 1, 0);
+        if (!this.canGoPrev()) {
+            return;
         }
-        this.displayPage();
-        this.saveBookmark();
+        
+        // スライドアウトアニメーション（左へ）
+        this.pageContainer.classList.add('slide-out-left');
+        
+        setTimeout(() => {
+            if (this.viewMode === 'spread' && window.innerWidth >= 768) {
+                // 見開き表示では2ページ戻る
+                this.currentPage = Math.max(this.currentPage - 2, 0);
+            } else {
+                this.currentPage = Math.max(this.currentPage - 1, 0);
+            }
+            // スライドインアニメーション（右から）
+            this.displayPage('slide-in-right');
+            this.saveBookmark();
+        }, this.animationSpeed * 1000);
     }
     
-    goToPage(pageIndex) {
-        this.currentPage = Math.max(0, Math.min(pageIndex, this.images.length - 1));
-        this.displayPage();
-        this.saveBookmark();
+    updateButtonStates() {
+        const nextBtn = document.getElementById('next-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        
+        if (this.canGoNext()) {
+            nextBtn.classList.remove('disabled');
+            nextBtn.disabled = false;
+        } else {
+            nextBtn.classList.add('disabled');
+            nextBtn.disabled = true;
+        }
+        
+        if (this.canGoPrev()) {
+            prevBtn.classList.remove('disabled');
+            prevBtn.disabled = false;
+        } else {
+            prevBtn.classList.add('disabled');
+            prevBtn.disabled = true;
+        }
+    }
+    
+    goToPage(pageIndex, withAnimation = false) {
+        const targetPage = Math.max(0, Math.min(pageIndex, this.images.length - 1));
+        
+        if (withAnimation) {
+            // ジャンプ時の方向を決定
+            const direction = targetPage > this.currentPage ? 'slide-out-right' : 'slide-out-left';
+            const inDirection = targetPage > this.currentPage ? 'slide-in-left' : 'slide-in-right';
+            
+            this.pageContainer.classList.add(direction);
+            
+            setTimeout(() => {
+                this.currentPage = targetPage;
+                this.displayPage(inDirection);
+                this.saveBookmark();
+            }, this.animationSpeed * 1000);
+        } else {
+            this.currentPage = targetPage;
+            this.displayPage();
+            this.saveBookmark();
+        }
     }
     
     toggleViewMode() {
@@ -244,6 +395,11 @@ class MangaViewer {
                 e.preventDefault();
                 this.toggleViewMode();
                 break;
+            case 'h':
+            case 'H':
+                e.preventDefault();
+                this.toggleControlPanel();
+                break;
             case 'Home':
                 e.preventDefault();
                 this.goToPage(0);
@@ -256,6 +412,12 @@ class MangaViewer {
     }
     
     handleViewerClick(e) {
+        // タッチイベントが処理された直後はクリックを無視
+        if (this.touchHandled) {
+            this.touchHandled = false;
+            return;
+        }
+        
         // ズーム中はクリックでページ遷移しない
         if (this.zoom > 1.0) {
             return;
@@ -384,10 +546,13 @@ class MangaViewer {
             
             // 横スワイプが縦スワイプより大きい場合のみページ遷移
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-                if (deltaX < 0) {
-                    this.nextPage(); // 左スワイプ→次ページ（日本式）
+                // スワイプが検出されたらフラグを立てる
+                this.touchHandled = true;
+                
+                if (deltaX > 0) {
+                    this.nextPage(); // 左から右へスワイプ→次ページ
                 } else {
-                    this.prevPage(); // 右スワイプ→前ページ（日本式）
+                    this.prevPage(); // 右から左へスワイプ→前ページ
                 }
             }
             
@@ -407,7 +572,7 @@ class MangaViewer {
         // 日本式：右端=最初のページ、左端=最後のページ
         const clickRatio = 1 - (clickX / rect.width);
         const pageIndex = Math.floor(clickRatio * this.images.length);
-        this.goToPage(pageIndex);
+        this.goToPage(pageIndex, true); // アニメーション付きでジャンプ
     }
     
     generateThumbnails() {
@@ -433,7 +598,7 @@ class MangaViewer {
             item.appendChild(label);
             
             item.addEventListener('click', () => {
-                this.goToPage(index);
+                this.goToPage(index, true); // アニメーション付きでジャンプ
                 this.toggleThumbnailPanel();
             });
             
@@ -486,7 +651,7 @@ class MangaViewer {
     startAutoPlay() {
         this.stopAutoPlay();
         this.autoPlayInterval = setInterval(() => {
-            if (this.currentPage >= this.images.length - 1) {
+            if (!this.canGoNext()) {
                 this.goToPage(0); // 最後まで行ったら最初に戻る
             } else {
                 this.nextPage();
@@ -522,7 +687,8 @@ class MangaViewer {
             isDarkMode: this.isDarkMode,
             viewMode: this.viewMode,
             animationSpeed: this.animationSpeed,
-            backgroundColor: document.body.style.backgroundColor || ''
+            backgroundColor: document.body.style.backgroundColor || '',
+            isControlPanelMinimized: this.isControlPanelMinimized
         };
         localStorage.setItem('mangaViewer_settings', JSON.stringify(settings));
     }
@@ -535,11 +701,14 @@ class MangaViewer {
                 this.isDarkMode = settings.isDarkMode || false;
                 this.viewMode = settings.viewMode || 'single';
                 this.animationSpeed = settings.animationSpeed || 0.3;
+                this.isControlPanelMinimized = settings.isControlPanelMinimized || false;
                 
                 if (settings.backgroundColor) {
                     document.body.style.backgroundColor = settings.backgroundColor;
                     document.getElementById('bg-color').value = settings.backgroundColor;
                 }
+                
+                // デスクトップでは常に最小化状態からスタート（設定は無視）
                 
                 // UI要素の更新
                 document.getElementById('animation-speed').value = this.animationSpeed;
@@ -553,6 +722,17 @@ class MangaViewer {
     handleResize() {
         // リサイズ時にページ表示を更新
         this.displayPage();
+        
+        // モバイル⇔デスクトップ切替時にコントロールパネルの状態をリセット
+        if (this.isMobile()) {
+            this.controlPanel.classList.remove('minimized');
+            this.isControlPanelExpanded = false;
+        } else {
+            this.controlPanel.classList.remove('expanded');
+            // デスクトップでは常に最小化状態からスタート
+            this.controlPanel.classList.add('minimized');
+            this.isControlPanelMinimized = true;
+        }
     }
 }
 
