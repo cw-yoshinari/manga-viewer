@@ -1,0 +1,563 @@
+// 漫画ビューワ - メインアプリケーション
+class MangaViewer {
+    constructor() {
+        // 画像ファイルのリスト（001.png～006.png）
+        this.images = ['001.png', '002.png', '003.png', '004.png', '005.png', '006.png'];
+        this.currentPage = 0;
+        this.viewMode = 'single'; // 'single' or 'spread'
+        this.isDarkMode = false;
+        this.zoom = 1.0;
+        this.zoomMin = 0.5;
+        this.zoomMax = 3.0;
+        this.isPanning = false;
+        this.panStart = { x: 0, y: 0 };
+        this.panOffset = { x: 0, y: 0 };
+        this.animationSpeed = 0.3;
+        this.autoPlayInterval = null;
+        this.autoPlayDelay = 3000;
+        
+        // タッチ操作用
+        this.touchStart = { x: 0, y: 0 };
+        this.touchStartDistance = 0;
+        this.initialZoom = 1.0;
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadSettings();
+        this.setupDOM();
+        this.loadBookmark();
+        this.displayPage();
+        this.setupEventListeners();
+        this.generateThumbnails();
+    }
+    
+    setupDOM() {
+        this.pageContainer = document.getElementById('page-container');
+        this.progressBar = document.getElementById('progress-bar');
+        this.pageInfo = document.getElementById('page-info');
+        this.viewer = document.getElementById('viewer');
+        this.viewerContainer = document.getElementById('viewer-container');
+        
+        // ダークモードの適用
+        if (this.isDarkMode) {
+            document.body.classList.add('dark-mode');
+        }
+        
+        // アニメーション速度の適用
+        document.documentElement.style.setProperty('--animation-speed', `${this.animationSpeed}s`);
+    }
+    
+    setupEventListeners() {
+        // コントロールボタン
+        document.getElementById('prev-btn').addEventListener('click', () => this.prevPage());
+        document.getElementById('next-btn').addEventListener('click', () => this.nextPage());
+        document.getElementById('view-mode-btn').addEventListener('click', () => this.toggleViewMode());
+        document.getElementById('thumbnail-btn').addEventListener('click', () => this.toggleThumbnailPanel());
+        document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
+        document.getElementById('settings-btn').addEventListener('click', () => this.toggleSettingsPanel());
+        document.getElementById('darkmode-btn').addEventListener('click', () => this.toggleDarkMode());
+        
+        // パネル閉じるボタン
+        document.getElementById('thumbnail-close-btn').addEventListener('click', () => this.toggleThumbnailPanel());
+        document.getElementById('settings-close-btn').addEventListener('click', () => this.toggleSettingsPanel());
+        
+        // 設定項目
+        document.getElementById('animation-speed').addEventListener('input', (e) => this.updateAnimationSpeed(e.target.value));
+        document.getElementById('bg-color').addEventListener('input', (e) => this.updateBackgroundColor(e.target.value));
+        document.getElementById('auto-play').addEventListener('change', (e) => this.toggleAutoPlay(e.target.checked));
+        document.getElementById('auto-play-interval').addEventListener('input', (e) => this.updateAutoPlayInterval(e.target.value));
+        document.getElementById('reset-bookmark').addEventListener('click', () => this.resetBookmark());
+        
+        // キーボード操作
+        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+        
+        // マウス操作（ページクリック）
+        this.viewer.addEventListener('click', (e) => this.handleViewerClick(e));
+        
+        // マウスホイール（ズーム）
+        this.viewer.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        
+        // ドラッグ操作（パン）
+        this.viewer.addEventListener('mousedown', (e) => this.handlePanStart(e));
+        document.addEventListener('mousemove', (e) => this.handlePanMove(e));
+        document.addEventListener('mouseup', () => this.handlePanEnd());
+        
+        // タッチ操作
+        this.viewer.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+        this.viewer.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+        this.viewer.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        
+        // 進捗バークリック
+        document.getElementById('progress-container').addEventListener('click', (e) => this.handleProgressBarClick(e));
+        
+        // ページ遷移前にブックマーク保存
+        window.addEventListener('beforeunload', () => this.saveBookmark());
+        
+        // ウィンドウリサイズ
+        window.addEventListener('resize', () => this.handleResize());
+    }
+    
+    displayPage() {
+        this.pageContainer.innerHTML = '';
+        this.pageContainer.className = `page-container ${this.viewMode}-mode`;
+        
+        // ズームとパンのリセット
+        if (this.zoom === 1.0) {
+            this.pageContainer.style.transform = '';
+        } else {
+            this.pageContainer.style.transform = `scale(${this.zoom}) translate(${this.panOffset.x}px, ${this.panOffset.y}px)`;
+        }
+        
+        if (this.viewMode === 'single') {
+            // 単ページ表示
+            const img = document.createElement('img');
+            img.src = this.images[this.currentPage];
+            img.alt = `ページ ${this.currentPage + 1}`;
+            this.pageContainer.appendChild(img);
+        } else {
+            // 見開き表示（日本式：右から左へ読む）
+            const isMobile = window.innerWidth < 768;
+            
+            if (isMobile) {
+                // モバイルでは単ページ表示
+                const img = document.createElement('img');
+                img.src = this.images[this.currentPage];
+                img.alt = `ページ ${this.currentPage + 1}`;
+                this.pageContainer.appendChild(img);
+            } else {
+                // 右側（日本式：先に読むページ = currentPage）
+                if (this.currentPage < this.images.length) {
+                    const rightImg = document.createElement('img');
+                    rightImg.src = this.images[this.currentPage];
+                    rightImg.alt = `ページ ${this.currentPage + 1}`;
+                    this.pageContainer.appendChild(rightImg);
+                }
+                
+                // 左側（日本式：後に読むページ = currentPage + 1）
+                if (this.currentPage + 1 < this.images.length) {
+                    const leftImg = document.createElement('img');
+                    leftImg.src = this.images[this.currentPage + 1];
+                    leftImg.alt = `ページ ${this.currentPage + 2}`;
+                    this.pageContainer.appendChild(leftImg);
+                }
+            }
+        }
+        
+        this.updateProgress();
+        this.updateThumbnailHighlight();
+    }
+    
+    updateProgress() {
+        const progress = ((this.currentPage + 1) / this.images.length) * 100;
+        this.progressBar.style.width = `${progress}%`;
+        this.pageInfo.textContent = `${this.currentPage + 1}/${this.images.length}`;
+    }
+    
+    nextPage() {
+        if (this.viewMode === 'spread' && window.innerWidth >= 768) {
+            // 見開き表示では2ページ進む
+            this.currentPage = Math.min(this.currentPage + 2, this.images.length - 1);
+        } else {
+            this.currentPage = Math.min(this.currentPage + 1, this.images.length - 1);
+        }
+        this.displayPage();
+        this.saveBookmark();
+    }
+    
+    prevPage() {
+        if (this.viewMode === 'spread' && window.innerWidth >= 768) {
+            // 見開き表示では2ページ戻る
+            this.currentPage = Math.max(this.currentPage - 2, 0);
+        } else {
+            this.currentPage = Math.max(this.currentPage - 1, 0);
+        }
+        this.displayPage();
+        this.saveBookmark();
+    }
+    
+    goToPage(pageIndex) {
+        this.currentPage = Math.max(0, Math.min(pageIndex, this.images.length - 1));
+        this.displayPage();
+        this.saveBookmark();
+    }
+    
+    toggleViewMode() {
+        this.viewMode = this.viewMode === 'single' ? 'spread' : 'single';
+        this.displayPage();
+        this.saveSettings();
+    }
+    
+    toggleDarkMode() {
+        this.isDarkMode = !this.isDarkMode;
+        document.body.classList.toggle('dark-mode');
+        this.saveSettings();
+    }
+    
+    toggleThumbnailPanel() {
+        const panel = document.getElementById('thumbnail-panel');
+        panel.classList.toggle('hidden');
+    }
+    
+    toggleSettingsPanel() {
+        const panel = document.getElementById('settings-panel');
+        panel.classList.toggle('hidden');
+    }
+    
+    toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.error('全画面表示エラー:', err);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    }
+    
+    handleKeyboard(e) {
+        // パネルが開いている場合はキーボード操作を無効化
+        const thumbnailPanel = document.getElementById('thumbnail-panel');
+        const settingsPanel = document.getElementById('settings-panel');
+        if (!thumbnailPanel.classList.contains('hidden') || !settingsPanel.classList.contains('hidden')) {
+            return;
+        }
+        
+        switch(e.key) {
+            case 'ArrowLeft':
+            case ' ':
+            case 'Spacebar': // 古いブラウザ対応
+                e.preventDefault();
+                this.nextPage(); // 日本式：左が次
+                break;
+            case 'ArrowRight':
+                e.preventDefault();
+                this.prevPage(); // 日本式：右が前
+                break;
+            case 'f':
+            case 'F':
+                e.preventDefault();
+                this.toggleFullscreen();
+                break;
+            case 's':
+            case 'S':
+                e.preventDefault();
+                this.toggleViewMode();
+                break;
+            case 'Home':
+                e.preventDefault();
+                this.goToPage(0);
+                break;
+            case 'End':
+                e.preventDefault();
+                this.goToPage(this.images.length - 1);
+                break;
+        }
+    }
+    
+    handleViewerClick(e) {
+        // ズーム中はクリックでページ遷移しない
+        if (this.zoom > 1.0) {
+            return;
+        }
+        
+        const rect = this.viewer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const centerX = rect.width / 2;
+        
+        if (clickX < centerX) {
+            this.nextPage(); // 左半分クリック→次ページ（日本式）
+        } else {
+            this.prevPage(); // 右半分クリック→前ページ（日本式）
+        }
+    }
+    
+    handleWheel(e) {
+        e.preventDefault();
+        
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newZoom = Math.max(this.zoomMin, Math.min(this.zoomMax, this.zoom + delta));
+        
+        if (newZoom !== this.zoom) {
+            this.zoom = newZoom;
+            this.applyZoom();
+            this.showZoomInfo();
+            
+            // ズーム状態によってカーソルを変更
+            if (this.zoom > 1.0) {
+                this.viewer.classList.add('zoomed');
+            } else {
+                this.viewer.classList.remove('zoomed');
+                this.panOffset = { x: 0, y: 0 };
+            }
+        }
+    }
+    
+    applyZoom() {
+        if (this.zoom === 1.0) {
+            this.pageContainer.style.transform = '';
+        } else {
+            this.pageContainer.style.transform = `scale(${this.zoom}) translate(${this.panOffset.x}px, ${this.panOffset.y}px)`;
+        }
+    }
+    
+    showZoomInfo() {
+        const zoomInfo = document.getElementById('zoom-info');
+        zoomInfo.textContent = `${Math.round(this.zoom * 100)}%`;
+        zoomInfo.classList.remove('hidden');
+        
+        clearTimeout(this.zoomInfoTimeout);
+        this.zoomInfoTimeout = setTimeout(() => {
+            zoomInfo.classList.add('hidden');
+        }, 1000);
+    }
+    
+    handlePanStart(e) {
+        if (this.zoom > 1.0) {
+            this.isPanning = true;
+            this.panStart = { x: e.clientX - this.panOffset.x, y: e.clientY - this.panOffset.y };
+        }
+    }
+    
+    handlePanMove(e) {
+        if (this.isPanning) {
+            this.panOffset = {
+                x: e.clientX - this.panStart.x,
+                y: e.clientY - this.panStart.y
+            };
+            this.applyZoom();
+        }
+    }
+    
+    handlePanEnd() {
+        this.isPanning = false;
+    }
+    
+    handleTouchStart(e) {
+        if (e.touches.length === 1) {
+            // シングルタッチ（スワイプ）
+            this.touchStart = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY
+            };
+        } else if (e.touches.length === 2) {
+            // ピンチズーム
+            e.preventDefault();
+            const distance = this.getTouchDistance(e.touches[0], e.touches[1]);
+            this.touchStartDistance = distance;
+            this.initialZoom = this.zoom;
+        }
+    }
+    
+    handleTouchMove(e) {
+        if (e.touches.length === 2) {
+            // ピンチズーム
+            e.preventDefault();
+            const distance = this.getTouchDistance(e.touches[0], e.touches[1]);
+            const scale = distance / this.touchStartDistance;
+            const newZoom = Math.max(this.zoomMin, Math.min(this.zoomMax, this.initialZoom * scale));
+            
+            if (newZoom !== this.zoom) {
+                this.zoom = newZoom;
+                this.applyZoom();
+                this.showZoomInfo();
+                
+                if (this.zoom > 1.0) {
+                    this.viewer.classList.add('zoomed');
+                } else {
+                    this.viewer.classList.remove('zoomed');
+                    this.panOffset = { x: 0, y: 0 };
+                }
+            }
+        }
+    }
+    
+    handleTouchEnd(e) {
+        if (e.changedTouches.length === 1 && this.touchStart.x !== 0) {
+            const touchEnd = {
+                x: e.changedTouches[0].clientX,
+                y: e.changedTouches[0].clientY
+            };
+            
+            const deltaX = touchEnd.x - this.touchStart.x;
+            const deltaY = touchEnd.y - this.touchStart.y;
+            
+            // 横スワイプが縦スワイプより大きい場合のみページ遷移
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+                if (deltaX < 0) {
+                    this.nextPage(); // 左スワイプ→次ページ（日本式）
+                } else {
+                    this.prevPage(); // 右スワイプ→前ページ（日本式）
+                }
+            }
+            
+            this.touchStart = { x: 0, y: 0 };
+        }
+    }
+    
+    getTouchDistance(touch1, touch2) {
+        const dx = touch2.clientX - touch1.clientX;
+        const dy = touch2.clientY - touch1.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    handleProgressBarClick(e) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        // 日本式：右端=最初のページ、左端=最後のページ
+        const clickRatio = 1 - (clickX / rect.width);
+        const pageIndex = Math.floor(clickRatio * this.images.length);
+        this.goToPage(pageIndex);
+    }
+    
+    generateThumbnails() {
+        const grid = document.getElementById('thumbnail-grid');
+        grid.innerHTML = '';
+        
+        this.images.forEach((imageSrc, index) => {
+            const item = document.createElement('div');
+            item.className = 'thumbnail-item';
+            if (index === this.currentPage) {
+                item.classList.add('active');
+            }
+            
+            const img = document.createElement('img');
+            img.src = imageSrc;
+            img.alt = `ページ ${index + 1}`;
+            
+            const label = document.createElement('div');
+            label.className = 'thumbnail-label';
+            label.textContent = `${index + 1}`;
+            
+            item.appendChild(img);
+            item.appendChild(label);
+            
+            item.addEventListener('click', () => {
+                this.goToPage(index);
+                this.toggleThumbnailPanel();
+            });
+            
+            grid.appendChild(item);
+        });
+    }
+    
+    updateThumbnailHighlight() {
+        const items = document.querySelectorAll('.thumbnail-item');
+        items.forEach((item, index) => {
+            if (index === this.currentPage) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+    
+    updateAnimationSpeed(value) {
+        this.animationSpeed = parseFloat(value);
+        document.documentElement.style.setProperty('--animation-speed', `${this.animationSpeed}s`);
+        document.getElementById('animation-speed-value').textContent = `${this.animationSpeed}s`;
+        this.saveSettings();
+    }
+    
+    updateBackgroundColor(color) {
+        document.body.style.backgroundColor = color;
+        this.saveSettings();
+    }
+    
+    toggleAutoPlay(enabled) {
+        const intervalInput = document.getElementById('auto-play-interval');
+        intervalInput.disabled = !enabled;
+        
+        if (enabled) {
+            this.startAutoPlay();
+        } else {
+            this.stopAutoPlay();
+        }
+    }
+    
+    updateAutoPlayInterval(value) {
+        this.autoPlayDelay = parseInt(value) * 1000;
+        if (this.autoPlayInterval) {
+            this.stopAutoPlay();
+            this.startAutoPlay();
+        }
+    }
+    
+    startAutoPlay() {
+        this.stopAutoPlay();
+        this.autoPlayInterval = setInterval(() => {
+            if (this.currentPage >= this.images.length - 1) {
+                this.goToPage(0); // 最後まで行ったら最初に戻る
+            } else {
+                this.nextPage();
+            }
+        }, this.autoPlayDelay);
+    }
+    
+    stopAutoPlay() {
+        if (this.autoPlayInterval) {
+            clearInterval(this.autoPlayInterval);
+            this.autoPlayInterval = null;
+        }
+    }
+    
+    resetBookmark() {
+        localStorage.removeItem('mangaViewer_bookmark');
+        alert('しおりをリセットしました');
+    }
+    
+    saveBookmark() {
+        localStorage.setItem('mangaViewer_bookmark', this.currentPage);
+    }
+    
+    loadBookmark() {
+        const bookmark = localStorage.getItem('mangaViewer_bookmark');
+        if (bookmark !== null) {
+            this.currentPage = parseInt(bookmark);
+        }
+    }
+    
+    saveSettings() {
+        const settings = {
+            isDarkMode: this.isDarkMode,
+            viewMode: this.viewMode,
+            animationSpeed: this.animationSpeed,
+            backgroundColor: document.body.style.backgroundColor || ''
+        };
+        localStorage.setItem('mangaViewer_settings', JSON.stringify(settings));
+    }
+    
+    loadSettings() {
+        const settingsJson = localStorage.getItem('mangaViewer_settings');
+        if (settingsJson) {
+            try {
+                const settings = JSON.parse(settingsJson);
+                this.isDarkMode = settings.isDarkMode || false;
+                this.viewMode = settings.viewMode || 'single';
+                this.animationSpeed = settings.animationSpeed || 0.3;
+                
+                if (settings.backgroundColor) {
+                    document.body.style.backgroundColor = settings.backgroundColor;
+                    document.getElementById('bg-color').value = settings.backgroundColor;
+                }
+                
+                // UI要素の更新
+                document.getElementById('animation-speed').value = this.animationSpeed;
+                document.getElementById('animation-speed-value').textContent = `${this.animationSpeed}s`;
+            } catch (e) {
+                console.error('設定の読み込みエラー:', e);
+            }
+        }
+    }
+    
+    handleResize() {
+        // リサイズ時にページ表示を更新
+        this.displayPage();
+    }
+}
+
+// アプリケーション初期化
+document.addEventListener('DOMContentLoaded', () => {
+    const viewer = new MangaViewer();
+});
+
