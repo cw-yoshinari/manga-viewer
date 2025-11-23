@@ -227,7 +227,7 @@ body.dark-mode .page-info {
     border-radius: 50px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     z-index: 100;
-    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out, left 0.3s ease-in-out;
 }
 
 body.dark-mode .control-panel {
@@ -244,6 +244,9 @@ body.dark-mode .control-panel {
 .control-panel.minimized {
     padding: 5px 10px;
     gap: 5px;
+    left: auto; /* 中央配置を解除 */
+    right: 20px; /* 右側に配置 */
+    transform: none; /* 中央揃えのtransformを解除 */
 }
 
 .control-panel.minimized .control-btn:not(.expand-btn) {
@@ -649,7 +652,14 @@ body.dark-mode .setting-item input[type="number"] {
     .control-panel:not(.expanded) {
         padding: 8px;
         border-radius: 50%;
-        background-color: rgba(76, 175, 80, 0.9);
+        background-color: var(--control-bg-light); /* 通常の色に変更 */
+        left: auto; /* 中央配置を解除 */
+        right: 20px; /* 右側に配置 */
+        transform: none; /* 中央揃えのtransformを解除 */
+    }
+    
+    body.dark-mode .control-panel:not(.expanded) {
+        background-color: var(--control-bg-dark);
     }
     
     .control-panel:not(.expanded) .control-btn:not(.expand-btn) {
@@ -657,7 +667,11 @@ body.dark-mode .setting-item input[type="number"] {
     }
     
     .control-panel:not(.expanded) .expand-btn {
-        color: white;
+        color: var(--text-color-light); /* 通常のテキスト色に変更 */
+    }
+    
+    body.dark-mode .control-panel:not(.expanded) .expand-btn {
+        color: var(--text-color-dark);
     }
     
     .control-panel.expanded {
