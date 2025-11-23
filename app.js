@@ -448,10 +448,16 @@ class MangaViewer {
     }
     
     applyZoom() {
+        const images = this.pageContainer.querySelectorAll('img');
         if (this.zoom === 1.0) {
-            this.pageContainer.style.transform = '';
+            images.forEach(img => {
+                img.style.transform = '';
+            });
         } else {
-            this.pageContainer.style.transform = `scale(${this.zoom}) translate(${this.panOffset.x}px, ${this.panOffset.y}px)`;
+            images.forEach(img => {
+                img.style.transform = `scale(${this.zoom}) translate(${this.panOffset.x / this.zoom}px, ${this.panOffset.y / this.zoom}px)`;
+                img.style.transformOrigin = 'center center';
+            });
         }
     }
     
