@@ -8,10 +8,13 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>漫画ビューワ</title>
-    <!-- v2.8-chrome-direct-js-style -->
+    <!-- v2.9-mobile-debug-display -->
     <link rel="stylesheet" href="style-mobile.css?v=20250122171000">
 </head>
 <body>
+    <!-- デバッグ情報表示（スマホ用） -->
+    <div id="debug-info" style="position: fixed; top: 60px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; max-width: 90%; word-break: break-all; display: none;"></div>
+
     <!-- メインビューア領域 -->
     <div id="viewer-container">
         <div id="viewer" class="viewer">
@@ -126,7 +129,7 @@
         <div class="spinner"></div>
     </div>
 
-    <script src="app.js?v=20250122172000"></script>
+    <script src="app.js?v=20250122173000"></script>
 </body>
 </html>
 

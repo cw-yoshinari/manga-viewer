@@ -45,8 +45,15 @@ class MangaViewer {
         const isChrome = /Chrome/.test(navigator.userAgent) && !/Line/.test(navigator.userAgent);
         const isLine = /Line/.test(navigator.userAgent);
         
+        let debugLog = [];
+        debugLog.push('=== Browser Detection ===');
+        debugLog.push('UA: ' + navigator.userAgent.substring(0, 50) + '...');
+        debugLog.push('Browser: ' + (isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other'));
+        debugLog.push('Mobile: ' + this.isMobile());
+        
         if (isChrome) {
             document.body.classList.add('is-chrome');
+            debugLog.push('Class added: is-chrome');
             
             // Chrome専用：JavaScriptで直接スタイルを適用（CSSが効かない場合の確実な方法）
             setTimeout(() => {
@@ -54,12 +61,20 @@ class MangaViewer {
                 if (viewer && this.isMobile()) {
                     viewer.style.setProperty('align-items', 'flex-start', 'important');
                     viewer.style.setProperty('padding-top', '300px', 'important');
+                    debugLog.push('[Chrome] Style applied: padding-top 300px');
                     console.log('[Chrome] Direct style applied to viewer');
+                    this.showDebugInfo(debugLog.join('<br>'));
+                } else {
+                    debugLog.push('[Chrome] NOT applied (not mobile or no viewer)');
+                    this.showDebugInfo(debugLog.join('<br>'));
                 }
             }, 100);
-        }
-        if (isLine) {
-            document.body.classList.add('is-line');
+        } else {
+            if (isLine) {
+                document.body.classList.add('is-line');
+                debugLog.push('Class added: is-line');
+            }
+            this.showDebugInfo(debugLog.join('<br>'));
         }
         
         console.log('=== Browser Detection ===');
@@ -68,6 +83,20 @@ class MangaViewer {
         console.log('body classes:', document.body.className);
         console.log('isMobile:', this.isMobile());
         console.log('========================');
+    }
+    
+    showDebugInfo(message) {
+        // 画面上にデバッグ情報を表示（スマホ用）
+        const debugDiv = document.getElementById('debug-info');
+        if (debugDiv) {
+            debugDiv.innerHTML = message;
+            debugDiv.style.display = 'block';
+            
+            // 10秒後に非表示
+            setTimeout(() => {
+                debugDiv.style.display = 'none';
+            }, 10000);
+        }
     }
     
     setViewportHeight() {
