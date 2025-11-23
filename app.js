@@ -52,7 +52,11 @@ class MangaViewer {
             document.body.classList.add('is-line');
         }
         
+        console.log('=== Browser Detection ===');
+        console.log('User Agent:', navigator.userAgent);
         console.log('Browser detected:', isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other');
+        console.log('body classes:', document.body.className);
+        console.log('========================');
     }
     
     setViewportHeight() {
