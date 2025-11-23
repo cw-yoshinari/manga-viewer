@@ -159,8 +159,9 @@ body.dark-mode {
 
 /* Chrome専用：中央位置を下へ調整 */
 @media (max-width: 767px) {
-    body.is-chrome .page-container img {
-        margin-top: 30px; /* 下方向へ移動 */
+    body.is-chrome .viewer {
+        align-items: flex-start; /* 上寄せに変更 */
+        padding-top: 50px; /* 下方向へ移動 */
     }
 }
 
