@@ -53,11 +53,10 @@ body.dark-mode {
     height: 100%;
     display: flex;
     justify-content: center;
-    align-items: flex-start; /* 上寄せに変更 */
+    align-items: center; /* 中央配置に戻す */
     overflow: hidden;
     position: relative;
     cursor: default;
-    padding-top: 10px; /* 上部に少し余白 */
 }
 
 .viewer.zoomed {
@@ -152,7 +151,9 @@ body.dark-mode {
 /* モバイル：動的ビューポート高さからコントロールパネル分を引く */
 @media (max-width: 767px) {
     .page-container img {
-        max-height: calc(var(--vh, 1vh) * 100 - 150px); /* Chrome下部コントロール+パネル分を多めに引く */
+        max-height: calc(var(--vh, 1vh) * 100 - 120px); /* visualViewportで正確な高さを取得 */
+        max-width: 95%; /* 左右にも余白を持たせて全体的に95%に縮小 */
+        width: 95%; /* 明示的に95%に設定 */
     }
 }
 

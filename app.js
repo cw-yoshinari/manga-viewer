@@ -40,15 +40,31 @@ class MangaViewer {
     }
     
     setViewportHeight() {
-        // 実際のビューポート高さを取得してCSS変数に設定
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        // visualViewport APIを使って正確な表示領域を取得
+        const updateViewport = () => {
+            if (window.visualViewport) {
+                // visualViewport: ブラウザUIを除いた実際の表示領域
+                const vh = window.visualViewport.height * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+                
+                // デバッグ用（本番では削除可能）
+                console.log('visualViewport.height:', window.visualViewport.height);
+                console.log('window.innerHeight:', window.innerHeight);
+            } else {
+                // フォールバック
+                const vh = window.innerHeight * 0.01;
+                document.documentElement.style.setProperty('--vh', `${vh}px`);
+            }
+        };
         
-        // リサイズ時にも更新
-        window.addEventListener('resize', () => {
-            const vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-        });
+        updateViewport();
+        
+        // リサイズとスクロール時にも更新（URLバーの表示/非表示に対応）
+        window.addEventListener('resize', updateViewport);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', updateViewport);
+            window.visualViewport.addEventListener('scroll', updateViewport);
+        }
     }
     
     setupDOM() {
