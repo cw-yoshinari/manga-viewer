@@ -139,7 +139,7 @@ body.dark-mode {
 .page-container img {
     width: auto; /* 高さ制約を優先 */
     max-width: 100%; /* 横幅の最大値 */
-    max-height: calc(100vh - 150px); /* コントロールパネル+余白分を引く */
+    max-height: calc(var(--vh, 1vh) * 100 - 150px); /* 動的ビューポート高さ - コントロールパネル+余白 */
     aspect-ratio: 9 / 16; /* 9:16の比率を維持 */
     object-fit: contain;
     display: block;
@@ -147,10 +147,10 @@ body.dark-mode {
     transition: opacity 0.2s ease-in-out;
 }
 
-/* モバイル：URLバー+ブラウザUI（上下）+コントロールパネル分を引く */
+/* モバイル：動的ビューポート高さからコントロールパネル分を引く */
 @media (max-width: 767px) {
     .page-container img {
-        max-height: calc(100vh - 220px); /* URLバー60px + Chromeコントロール60px + パネル80px + 余白20px */
+        max-height: calc(var(--vh, 1vh) * 100 - 100px); /* 実際のビューポート高さ - コントロールパネル分 */
     }
 }
 

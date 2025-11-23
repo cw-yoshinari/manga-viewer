@@ -32,10 +32,23 @@ class MangaViewer {
     init() {
         this.loadSettings();
         this.setupDOM();
+        this.setViewportHeight(); // 動的にビューポート高さを設定
         this.loadBookmark();
         this.displayPage();
         this.setupEventListeners();
         this.generateThumbnails();
+    }
+    
+    setViewportHeight() {
+        // 実際のビューポート高さを取得してCSS変数に設定
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        
+        // リサイズ時にも更新
+        window.addEventListener('resize', () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        });
     }
     
     setupDOM() {
