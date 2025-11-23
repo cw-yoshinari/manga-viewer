@@ -151,7 +151,7 @@ body.dark-mode {
 /* モバイル：動的ビューポート高さからコントロールパネル分を引く */
 @media (max-width: 767px) {
     .page-container img {
-        max-height: calc(var(--vh, 1vh) * 100 - 100px); /* 実際のビューポート高さ - コントロールパネル分 */
+        max-height: calc(var(--vh, 1vh) * 100 - 150px); /* Chrome下部コントロール+パネル分を多めに引く */
     }
 }
 
