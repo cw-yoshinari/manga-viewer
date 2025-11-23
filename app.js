@@ -47,9 +47,28 @@ class MangaViewer {
                 const vh = window.visualViewport.height * 0.01;
                 document.documentElement.style.setProperty('--vh', `${vh}px`);
                 
-                // デバッグ用（本番では削除可能）
+                // ブラウザ判定
+                const isChrome = /Chrome/.test(navigator.userAgent) && !/Line/.test(navigator.userAgent);
+                const isLine = /Line/.test(navigator.userAgent);
+                
+                // Chrome専用の調整（offsetTopを考慮）
+                if (isChrome && window.visualViewport.offsetTop > 0) {
+                    const adjustedHeight = window.visualViewport.height - window.visualViewport.offsetTop;
+                    const adjustedVh = adjustedHeight * 0.01;
+                    document.documentElement.style.setProperty('--vh', `${adjustedVh}px`);
+                    console.log('[Chrome] visualViewport.offsetTop:', window.visualViewport.offsetTop);
+                    console.log('[Chrome] adjusted height:', adjustedHeight);
+                }
+                
+                // デバッグ用ログ
+                console.log('=== Viewport Debug ===');
+                console.log('Browser:', isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other');
                 console.log('visualViewport.height:', window.visualViewport.height);
+                console.log('visualViewport.offsetTop:', window.visualViewport.offsetTop);
+                console.log('visualViewport.offsetLeft:', window.visualViewport.offsetLeft);
                 console.log('window.innerHeight:', window.innerHeight);
+                console.log('--vh value:', document.documentElement.style.getPropertyValue('--vh'));
+                console.log('====================');
             } else {
                 // フォールバック
                 const vh = window.innerHeight * 0.01;
