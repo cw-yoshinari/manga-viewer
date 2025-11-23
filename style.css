@@ -138,11 +138,18 @@ body.dark-mode {
 
 .page-container img {
     max-width: 100%;
-    max-height: calc(100vh - 120px); /* コントロールパネル+余白分を引く */
+    max-height: calc(100vh - 150px); /* コントロールパネル+余白分を引く */
     object-fit: contain;
     display: block;
     pointer-events: none;
     transition: opacity 0.2s ease-in-out;
+}
+
+/* モバイル：URLバー+ブラウザUI+コントロールパネル分をさらに引く */
+@media (max-width: 767px) {
+    .page-container img {
+        max-height: calc(100vh - 250px);
+    }
 }
 
 /* 見開き表示モード */
