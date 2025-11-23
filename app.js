@@ -47,6 +47,16 @@ class MangaViewer {
         
         if (isChrome) {
             document.body.classList.add('is-chrome');
+            
+            // Chrome専用：JavaScriptで直接スタイルを適用（CSSが効かない場合の確実な方法）
+            setTimeout(() => {
+                const viewer = document.getElementById('viewer');
+                if (viewer && this.isMobile()) {
+                    viewer.style.setProperty('align-items', 'flex-start', 'important');
+                    viewer.style.setProperty('padding-top', '300px', 'important');
+                    console.log('[Chrome] Direct style applied to viewer');
+                }
+            }, 100);
         }
         if (isLine) {
             document.body.classList.add('is-line');
@@ -56,6 +66,7 @@ class MangaViewer {
         console.log('User Agent:', navigator.userAgent);
         console.log('Browser detected:', isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other');
         console.log('body classes:', document.body.className);
+        console.log('isMobile:', this.isMobile());
         console.log('========================');
     }
     
