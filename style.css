@@ -53,10 +53,11 @@ body.dark-mode {
     height: 100%;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* 上寄せに変更 */
     overflow: hidden;
     position: relative;
     cursor: default;
+    padding-top: 10px; /* 上部に少し余白 */
 }
 
 .viewer.zoomed {
