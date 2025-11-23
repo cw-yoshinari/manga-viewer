@@ -30,6 +30,7 @@ class MangaViewer {
     }
     
     init() {
+        this.detectBrowser(); // ブラウザ判定
         this.loadSettings();
         this.setupDOM();
         this.setViewportHeight(); // 動的にビューポート高さを設定
@@ -37,6 +38,21 @@ class MangaViewer {
         this.displayPage();
         this.setupEventListeners();
         this.generateThumbnails();
+    }
+    
+    detectBrowser() {
+        // ブラウザ判定してbody要素にクラスを追加
+        const isChrome = /Chrome/.test(navigator.userAgent) && !/Line/.test(navigator.userAgent);
+        const isLine = /Line/.test(navigator.userAgent);
+        
+        if (isChrome) {
+            document.body.classList.add('is-chrome');
+        }
+        if (isLine) {
+            document.body.classList.add('is-line');
+        }
+        
+        console.log('Browser detected:', isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other');
     }
     
     setViewportHeight() {

@@ -157,6 +157,13 @@ body.dark-mode {
     }
 }
 
+/* Chrome専用：中央位置を下へ調整 */
+@media (max-width: 767px) {
+    body.is-chrome .page-container img {
+        margin-top: 30px; /* 下方向へ移動 */
+    }
+}
+
 /* 見開き表示モード */
 .page-container.spread-mode {
     flex-direction: row-reverse; /* 日本式：右から左へ読む */
