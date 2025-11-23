@@ -42,7 +42,8 @@ class MangaViewer {
     
     detectBrowser() {
         // ブラウザ判定してbody要素にクラスを追加
-        const isChrome = /Chrome/.test(navigator.userAgent) && !/Line/.test(navigator.userAgent);
+        // iPhone ChromeはCriOS、Android ChromeはChromeというUser Agent文字列を使う
+        const isChrome = (/Chrome|CriOS/.test(navigator.userAgent)) && !/Line/.test(navigator.userAgent);
         const isLine = /Line/.test(navigator.userAgent);
         
         let debugLog = [];
