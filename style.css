@@ -57,8 +57,6 @@ body.dark-mode {
     overflow: hidden;
     position: relative;
     cursor: default;
-    padding-bottom: 100px; /* コントロールパネル分の余白を下に確保 */
-    box-sizing: border-box;
 }
 
 .viewer.zoomed {
@@ -140,7 +138,7 @@ body.dark-mode {
 
 .page-container img {
     max-width: 100%;
-    max-height: 100%;
+    max-height: calc(100vh - 120px); /* コントロールパネル+余白分を引く */
     object-fit: contain;
     display: block;
     pointer-events: none;
