@@ -137,8 +137,10 @@ body.dark-mode {
 }
 
 .page-container img {
-    max-width: 100%;
+    width: auto; /* 高さ制約を優先 */
+    max-width: 100%; /* 横幅の最大値 */
     max-height: calc(100vh - 150px); /* コントロールパネル+余白分を引く */
+    aspect-ratio: 9 / 16; /* 9:16の比率を維持 */
     object-fit: contain;
     display: block;
     pointer-events: none;
@@ -148,7 +150,7 @@ body.dark-mode {
 /* モバイル：URLバー+ブラウザUI+コントロールパネル分をさらに引く */
 @media (max-width: 767px) {
     .page-container img {
-        max-height: calc(100vh - 250px);
+        max-height: calc(100vh - 200px); /* より適切な値に調整 */
     }
 }
 
