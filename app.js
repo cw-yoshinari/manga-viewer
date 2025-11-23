@@ -22,8 +22,7 @@ class MangaViewer {
         this.initialZoom = 1.0;
         this.touchHandled = false; // タッチイベントが処理されたかどうか
         
-        // コントロールパネル自動非表示用
-        this.controlPanelTimeout = null;
+        // コントロールパネル状態管理
         this.isControlPanelMinimized = false;
         this.isControlPanelExpanded = false;
         
@@ -126,42 +125,20 @@ class MangaViewer {
     
     toggleControlPanel() {
         if (this.isMobile()) {
-            // モバイル：展開/縮小切替
+            // モバイル：展開/縮小切替（自動非表示なし）
             this.isControlPanelExpanded = !this.isControlPanelExpanded;
             if (this.isControlPanelExpanded) {
                 this.controlPanel.classList.add('expanded');
-                // 3秒後に自動縮小
-                if (this.controlPanelTimeout) {
-                    clearTimeout(this.controlPanelTimeout);
-                }
-                this.controlPanelTimeout = setTimeout(() => {
-                    this.isControlPanelExpanded = false;
-                    this.controlPanel.classList.remove('expanded');
-                }, 3000);
             } else {
                 this.controlPanel.classList.remove('expanded');
             }
         } else {
-            // デスクトップ：最小化/展開切替
+            // デスクトップ：最小化/展開切替（自動非表示なし）
             this.isControlPanelMinimized = !this.isControlPanelMinimized;
             if (this.isControlPanelMinimized) {
-                // 手動で最小化
                 this.controlPanel.classList.add('minimized');
-                // タイマーをクリア
-                if (this.controlPanelTimeout) {
-                    clearTimeout(this.controlPanelTimeout);
-                }
             } else {
-                // 手動で展開
                 this.controlPanel.classList.remove('minimized');
-                // 展開したら3秒後に自動最小化
-                if (this.controlPanelTimeout) {
-                    clearTimeout(this.controlPanelTimeout);
-                }
-                this.controlPanelTimeout = setTimeout(() => {
-                    this.controlPanel.classList.add('minimized');
-                    this.isControlPanelMinimized = true;
-                }, 3000);
             }
             this.saveSettings();
         }
