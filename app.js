@@ -54,7 +54,7 @@ class MangaViewer {
                 const viewer = document.getElementById('viewer');
                 if (viewer && this.isMobile()) {
                     viewer.style.setProperty('align-items', 'flex-start', 'important');
-                    viewer.style.setProperty('padding-top', '105px', 'important');
+                    viewer.style.setProperty('padding-top', '110px', 'important');
                 }
             }, 100);
         }
