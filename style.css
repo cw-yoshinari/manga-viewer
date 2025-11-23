@@ -255,14 +255,20 @@ body.dark-mode .control-panel {
 }
 
 /* 展開ボタンのアイコン回転 */
-/* デフォルトは▲（上向き）なので、展開時に▼（下向き）に回転 */
-.control-panel:not(.minimized) .expand-btn svg {
-    transform: rotate(180deg); /* 展開時は▼下向き */
+/* デフォルトは▲（上向き） */
+
+/* デスクトップ：最小化されていない時は▼（縮小ボタン） */
+@media (min-width: 768px) {
+    .control-panel:not(.minimized) .expand-btn svg {
+        transform: rotate(180deg);
+    }
 }
 
-/* モバイル：展開時は▼下向き */
-.control-panel.expanded .expand-btn svg {
-    transform: rotate(180deg);
+/* モバイル：展開時は▼（縮小ボタン）、縮小時は▲（展開ボタン） */
+@media (max-width: 767px) {
+    .control-panel.expanded .expand-btn svg {
+        transform: rotate(180deg);
+    }
 }
 
 .control-btn {
@@ -297,6 +303,7 @@ body.dark-mode .control-btn:hover {
 .control-btn.disabled {
     opacity: 0.3;
     cursor: not-allowed;
+    pointer-events: none;
     pointer-events: none;
 }
 

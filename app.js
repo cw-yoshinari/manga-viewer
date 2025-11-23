@@ -60,6 +60,8 @@ class MangaViewer {
             this.controlPanel.classList.add('minimized');
             this.isControlPanelMinimized = true;
         } else {
+            // モバイルでは初期状態は縮小（expandedクラスなし）
+            this.controlPanel.classList.remove('expanded');
             this.isControlPanelExpanded = false;
         }
     }
