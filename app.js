@@ -382,17 +382,17 @@ class MangaViewer {
         const isChrome = (/Chrome|CriOS/.test(navigator.userAgent)) && !/Line/.test(navigator.userAgent);
         const isLine = /Line/.test(navigator.userAgent);
         
-        if (isChrome) {
-            document.body.classList.add('is-chrome');
+        // if (isChrome) {
+        //     document.body.classList.add('is-chrome');
             
-            setTimeout(() => {
-                const viewer = document.getElementById('viewer');
-                if (viewer && this.isMobile()) {
-                    viewer.style.setProperty('align-items', 'flex-start', 'important');
-                    viewer.style.setProperty('padding-top', '110px', 'important');
-                }
-            }, 100);
-        }
+        //     setTimeout(() => {
+        //         const viewer = document.getElementById('viewer');
+        //         if (viewer && this.isMobile()) {
+        //             viewer.style.setProperty('align-items', 'flex-start', 'important');
+        //             viewer.style.setProperty('padding-top', '110px', 'important');
+        //         }
+        //     }, 100);
+        // }
         
         if (isLine) {
             document.body.classList.add('is-line');
