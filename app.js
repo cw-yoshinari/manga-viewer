@@ -88,6 +88,10 @@ class BookLibrary {
                 if (metadata.title) {
                     bookData.title = metadata.title;
                 }
+                // pageCount が定義されていれば使用（高速化）
+                if (metadata.pageCount && typeof metadata.pageCount === 'number') {
+                    bookData.pageCount = metadata.pageCount;
+                }
             }
         } catch (e) {
             // book.json がなくても問題なし
@@ -103,8 +107,10 @@ class BookLibrary {
             // cover.png がなければ 001.png を使用
         }
         
-        // ページ数のカウント
-        bookData.pageCount = await this.countPages(bookId);
+        // pageCount が未設定の場合のみ、連番チェックでカウント（フォールバック）
+        if (bookData.pageCount === 0) {
+            bookData.pageCount = await this.countPages(bookId);
+        }
         
         // 読了状況の取得
         bookData.progress = this.getBookProgress(bookId);
@@ -206,11 +212,15 @@ class BookLibrary {
     }
     
     openBook(bookId) {
+        // 該当ブックのページ数を取得
+        const book = this.books.find(b => b.id === bookId);
+        const pageCount = book ? book.pageCount : 0;
+        
         this.libraryScreen.classList.add('hidden');
         this.viewerScreen.classList.remove('hidden');
         
-        // MangaViewer を初期化
-        window.mangaViewer = new MangaViewer(bookId);
+        // MangaViewer を初期化（pageCount を渡して高速化）
+        window.mangaViewer = new MangaViewer(bookId, pageCount);
     }
     
     showLibrary() {
@@ -292,8 +302,9 @@ class BookLibrary {
 // MangaViewer クラス - 漫画ビューワ本体
 // ========================================
 class MangaViewer {
-    constructor(bookId) {
+    constructor(bookId, pageCount = 0) {
         this.bookId = bookId;
+        this.pageCount = pageCount; // ライブラリから渡されたページ数（高速化用）
         this.images = [];
         this.currentPage = 0;
         this.viewMode = 'single'; // 'single' or 'spread'
@@ -338,8 +349,18 @@ class MangaViewer {
     
     async loadPages() {
         this.images = [];
-        let pageNumber = 1;
         
+        // pageCount が渡されている場合は、連番チェックをスキップして即座に配列を構築（高速化）
+        if (this.pageCount > 0) {
+            for (let i = 1; i <= this.pageCount; i++) {
+                const pageId = String(i).padStart(3, '0');
+                this.images.push(`${this.bookId}/${pageId}.png`);
+            }
+            return;
+        }
+        
+        // フォールバック: pageCount が未設定の場合は連番でチェック
+        let pageNumber = 1;
         while (true) {
             const pageId = String(pageNumber).padStart(3, '0');
             const imagePath = `${this.bookId}/${pageId}.png`;
