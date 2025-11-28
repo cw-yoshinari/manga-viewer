@@ -1,11 +1,303 @@
-// 漫画ビューワ - メインアプリケーション
-class MangaViewer {
+// 漫画ビューワ - メインアプリケーション v4.0 (複数ブック対応)
+
+// ========================================
+// BookLibrary クラス - ブック選択画面の管理
+// ========================================
+class BookLibrary {
     constructor() {
-        // 画像ファイルのリスト（001.png～006.png）
-        this.images = ['001.png', '002.png', '003.png', '004.png', '005.png', '006.png'];
+        this.books = [];
+        this.viewMode = 'grid'; // 'grid' or 'list'
+        this.isDarkMode = false;
+        
+        this.init();
+    }
+    
+    async init() {
+        this.loadSettings();
+        this.setupDOM();
+        this.setupEventListeners();
+        await this.discoverBooks();
+        this.hideLoading();
+    }
+    
+    setupDOM() {
+        this.libraryScreen = document.getElementById('library-screen');
+        this.viewerScreen = document.getElementById('viewer-screen');
+        this.bookGrid = document.getElementById('book-grid');
+        this.loadingElement = document.getElementById('library-loading');
+        
+        // ダークモードの適用
+        if (this.isDarkMode) {
+            document.body.classList.add('dark-mode');
+        }
+    }
+    
+    setupEventListeners() {
+        // 表示切替ボタン
+        document.getElementById('view-toggle-btn').addEventListener('click', () => this.toggleViewMode());
+        
+        // ライブラリ画面のダークモードボタン
+        document.getElementById('library-darkmode-btn').addEventListener('click', () => this.toggleDarkMode());
+        
+        // 戻るボタン
+        document.getElementById('back-to-library-btn').addEventListener('click', () => this.showLibrary());
+    }
+    
+    async discoverBooks() {
+        this.books = [];
+        let bookNumber = 1;
+        
+        while (true) {
+            const bookId = String(bookNumber).padStart(3, '0');
+            const exists = await this.checkBookExists(bookId);
+            
+            if (!exists) {
+                break;
+            }
+            
+            const bookData = await this.loadBookData(bookId);
+            this.books.push(bookData);
+            bookNumber++;
+        }
+        
+        this.renderBooks();
+    }
+    
+    async checkBookExists(bookId) {
+        try {
+            const response = await fetch(`${bookId}/001.png`, { method: 'HEAD' });
+            return response.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+    
+    async loadBookData(bookId) {
+        const bookData = {
+            id: bookId,
+            title: bookId,
+            cover: `${bookId}/001.png`,
+            pageCount: 0
+        };
+        
+        // book.json の読み込み（任意）
+        try {
+            const response = await fetch(`${bookId}/book.json`);
+            if (response.ok) {
+                const metadata = await response.json();
+                if (metadata.title) {
+                    bookData.title = metadata.title;
+                }
+            }
+        } catch (e) {
+            // book.json がなくても問題なし
+        }
+        
+        // cover.png の存在チェック
+        try {
+            const coverResponse = await fetch(`${bookId}/cover.png`, { method: 'HEAD' });
+            if (coverResponse.ok) {
+                bookData.cover = `${bookId}/cover.png`;
+            }
+        } catch (e) {
+            // cover.png がなければ 001.png を使用
+        }
+        
+        // ページ数のカウント
+        bookData.pageCount = await this.countPages(bookId);
+        
+        // 読了状況の取得
+        bookData.progress = this.getBookProgress(bookId);
+        
+        return bookData;
+    }
+    
+    async countPages(bookId) {
+        let pageNumber = 1;
+        
+        while (true) {
+            const pageId = String(pageNumber).padStart(3, '0');
+            try {
+                const response = await fetch(`${bookId}/${pageId}.png`, { method: 'HEAD' });
+                if (!response.ok) {
+                    break;
+                }
+                pageNumber++;
+            } catch (e) {
+                break;
+            }
+        }
+        
+        return pageNumber - 1;
+    }
+    
+    getBookProgress(bookId) {
+        const bookmark = localStorage.getItem(`mangaViewer_bookmark_${bookId}`);
+        if (bookmark !== null) {
+            return parseInt(bookmark) + 1; // 0-indexed to 1-indexed
+        }
+        return 0;
+    }
+    
+    renderBooks() {
+        this.bookGrid.innerHTML = '';
+        this.bookGrid.className = `book-grid ${this.viewMode}-view`;
+        
+        if (this.books.length === 0) {
+            this.bookGrid.innerHTML = '<p class="no-books">ブックが見つかりません。001/, 002/ などのフォルダに画像を配置してください。</p>';
+            return;
+        }
+        
+        this.books.forEach(book => {
+            const card = this.createBookCard(book);
+            this.bookGrid.appendChild(card);
+        });
+    }
+    
+    createBookCard(book) {
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        card.dataset.bookId = book.id;
+        
+        const coverContainer = document.createElement('div');
+        coverContainer.className = 'book-cover-container';
+        
+        const cover = document.createElement('img');
+        cover.src = book.cover;
+        cover.alt = book.title;
+        cover.className = 'book-cover';
+        cover.loading = 'lazy';
+        
+        coverContainer.appendChild(cover);
+        
+        // 読了バッジ
+        if (book.progress > 0 && book.progress >= book.pageCount) {
+            const badge = document.createElement('div');
+            badge.className = 'book-badge completed';
+            badge.textContent = '読了';
+            coverContainer.appendChild(badge);
+        } else if (book.progress > 0) {
+            const badge = document.createElement('div');
+            badge.className = 'book-badge reading';
+            badge.textContent = `${book.progress}/${book.pageCount}`;
+            coverContainer.appendChild(badge);
+        }
+        
+        const info = document.createElement('div');
+        info.className = 'book-info';
+        
+        const title = document.createElement('h3');
+        title.className = 'book-title';
+        title.textContent = book.title;
+        
+        const meta = document.createElement('p');
+        meta.className = 'book-meta';
+        meta.textContent = `${book.pageCount}ページ`;
+        
+        info.appendChild(title);
+        info.appendChild(meta);
+        
+        card.appendChild(coverContainer);
+        card.appendChild(info);
+        
+        card.addEventListener('click', () => this.openBook(book.id));
+        
+        return card;
+    }
+    
+    openBook(bookId) {
+        this.libraryScreen.classList.add('hidden');
+        this.viewerScreen.classList.remove('hidden');
+        
+        // MangaViewer を初期化
+        window.mangaViewer = new MangaViewer(bookId);
+    }
+    
+    showLibrary() {
+        // 現在のビューワをクリーンアップ
+        if (window.mangaViewer) {
+            window.mangaViewer.cleanup();
+            window.mangaViewer = null;
+        }
+        
+        this.viewerScreen.classList.add('hidden');
+        this.libraryScreen.classList.remove('hidden');
+        
+        // 読了状況を更新して再表示
+        this.refreshBookProgress();
+    }
+    
+    async refreshBookProgress() {
+        for (const book of this.books) {
+            book.progress = this.getBookProgress(book.id);
+        }
+        this.renderBooks();
+    }
+    
+    toggleViewMode() {
+        this.viewMode = this.viewMode === 'grid' ? 'list' : 'grid';
+        this.renderBooks();
+        this.saveSettings();
+        
+        // アイコンを更新
+        const btn = document.getElementById('view-toggle-btn');
+        if (this.viewMode === 'list') {
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                </svg>
+            `;
+        } else {
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M4 11h5V5H4v6zm0 7h5v-6H4v6zm6 0h5v-6h-5v6zm6 0h5v-6h-5v6zm-6-7h5V5h-5v6zm6-6v6h5V5h-5z"/>
+                </svg>
+            `;
+        }
+    }
+    
+    toggleDarkMode() {
+        this.isDarkMode = !this.isDarkMode;
+        document.body.classList.toggle('dark-mode');
+        this.saveSettings();
+    }
+    
+    hideLoading() {
+        this.loadingElement.classList.add('hidden');
+    }
+    
+    saveSettings() {
+        const settings = {
+            isDarkMode: this.isDarkMode,
+            viewMode: this.viewMode
+        };
+        localStorage.setItem('mangaLibrary_settings', JSON.stringify(settings));
+    }
+    
+    loadSettings() {
+        const settingsJson = localStorage.getItem('mangaLibrary_settings');
+        if (settingsJson) {
+            try {
+                const settings = JSON.parse(settingsJson);
+                this.isDarkMode = settings.isDarkMode || false;
+                this.viewMode = settings.viewMode || 'grid';
+            } catch (e) {
+                console.error('ライブラリ設定の読み込みエラー:', e);
+            }
+        }
+    }
+}
+
+// ========================================
+// MangaViewer クラス - 漫画ビューワ本体
+// ========================================
+class MangaViewer {
+    constructor(bookId) {
+        this.bookId = bookId;
+        this.images = [];
         this.currentPage = 0;
         this.viewMode = 'single'; // 'single' or 'spread'
-        this.isDarkMode = false;
+        this.isDarkMode = document.body.classList.contains('dark-mode');
         this.zoom = 1.0;
         this.zoomMin = 0.5;
         this.zoomMax = 3.0;
@@ -20,36 +312,58 @@ class MangaViewer {
         this.touchStart = { x: 0, y: 0 };
         this.touchStartDistance = 0;
         this.initialZoom = 1.0;
-        this.touchHandled = false; // タッチイベントが処理されたかどうか
+        this.touchHandled = false;
         
         // コントロールパネル状態管理
         this.isControlPanelMinimized = false;
         this.isControlPanelExpanded = false;
         
+        // イベントリスナーの参照を保持（クリーンアップ用）
+        this.boundHandlers = {};
+        
         this.init();
     }
     
-    init() {
-        this.detectBrowser(); // ブラウザ判定
+    async init() {
+        this.detectBrowser();
         this.loadSettings();
+        await this.loadPages();
         this.setupDOM();
-        this.setViewportHeight(); // 動的にビューポート高さを設定
+        this.setViewportHeight();
         this.loadBookmark();
         this.displayPage();
         this.setupEventListeners();
         this.generateThumbnails();
     }
     
+    async loadPages() {
+        this.images = [];
+        let pageNumber = 1;
+        
+        while (true) {
+            const pageId = String(pageNumber).padStart(3, '0');
+            const imagePath = `${this.bookId}/${pageId}.png`;
+            
+            try {
+                const response = await fetch(imagePath, { method: 'HEAD' });
+                if (!response.ok) {
+                    break;
+                }
+                this.images.push(imagePath);
+                pageNumber++;
+            } catch (e) {
+                break;
+            }
+        }
+    }
+    
     detectBrowser() {
-        // ブラウザ判定してbody要素にクラスを追加
-        // iPhone ChromeはCriOS、Android ChromeはChromeというUser Agent文字列を使う
         const isChrome = (/Chrome|CriOS/.test(navigator.userAgent)) && !/Line/.test(navigator.userAgent);
         const isLine = /Line/.test(navigator.userAgent);
         
         if (isChrome) {
             document.body.classList.add('is-chrome');
             
-            // Chrome専用：JavaScriptで直接スタイルを適用
             setTimeout(() => {
                 const viewer = document.getElementById('viewer');
                 if (viewer && this.isMobile()) {
@@ -65,37 +379,19 @@ class MangaViewer {
     }
     
     setViewportHeight() {
-        // visualViewport APIを使って正確な表示領域を取得
         const updateViewport = () => {
             if (window.visualViewport) {
-                // visualViewport: ブラウザUIを除いた実際の表示領域
                 const vh = window.visualViewport.height * 0.01;
                 document.documentElement.style.setProperty('--vh', `${vh}px`);
                 
-                // ブラウザ判定
                 const isChrome = /Chrome/.test(navigator.userAgent) && !/Line/.test(navigator.userAgent);
-                const isLine = /Line/.test(navigator.userAgent);
                 
-                // Chrome専用の調整（offsetTopを考慮）
                 if (isChrome && window.visualViewport.offsetTop > 0) {
                     const adjustedHeight = window.visualViewport.height - window.visualViewport.offsetTop;
                     const adjustedVh = adjustedHeight * 0.01;
                     document.documentElement.style.setProperty('--vh', `${adjustedVh}px`);
-                    console.log('[Chrome] visualViewport.offsetTop:', window.visualViewport.offsetTop);
-                    console.log('[Chrome] adjusted height:', adjustedHeight);
                 }
-                
-                // デバッグ用ログ
-                console.log('=== Viewport Debug ===');
-                console.log('Browser:', isChrome ? 'Chrome' : isLine ? 'LINE' : 'Other');
-                console.log('visualViewport.height:', window.visualViewport.height);
-                console.log('visualViewport.offsetTop:', window.visualViewport.offsetTop);
-                console.log('visualViewport.offsetLeft:', window.visualViewport.offsetLeft);
-                console.log('window.innerHeight:', window.innerHeight);
-                console.log('--vh value:', document.documentElement.style.getPropertyValue('--vh'));
-                console.log('====================');
             } else {
-                // フォールバック
                 const vh = window.innerHeight * 0.01;
                 document.documentElement.style.setProperty('--vh', `${vh}px`);
             }
@@ -103,7 +399,7 @@ class MangaViewer {
         
         updateViewport();
         
-        // リサイズとスクロール時にも更新（URLバーの表示/非表示に対応）
+        this.boundHandlers.updateViewport = updateViewport;
         window.addEventListener('resize', updateViewport);
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', updateViewport);
@@ -119,11 +415,6 @@ class MangaViewer {
         this.viewerContainer = document.getElementById('viewer-container');
         this.controlPanel = document.getElementById('control-panel');
         
-        // ダークモードの適用
-        if (this.isDarkMode) {
-            document.body.classList.add('dark-mode');
-        }
-        
         // アニメーション速度の適用
         document.documentElement.style.setProperty('--animation-speed', `${this.animationSpeed}s`);
         
@@ -132,7 +423,6 @@ class MangaViewer {
             this.controlPanel.classList.add('minimized');
             this.isControlPanelMinimized = true;
         } else {
-            // モバイルでは初期状態は縮小（expandedクラスなし）
             this.controlPanel.classList.remove('expanded');
             this.isControlPanelExpanded = false;
         }
@@ -140,65 +430,144 @@ class MangaViewer {
     
     setupEventListeners() {
         // コントロールボタン
-        document.getElementById('prev-btn').addEventListener('click', () => this.prevPage());
-        document.getElementById('next-btn').addEventListener('click', () => this.nextPage());
-        document.getElementById('view-mode-btn').addEventListener('click', () => this.toggleViewMode());
-        document.getElementById('thumbnail-btn').addEventListener('click', () => this.toggleThumbnailPanel());
-        document.getElementById('fullscreen-btn').addEventListener('click', () => this.toggleFullscreen());
-        document.getElementById('settings-btn').addEventListener('click', () => this.toggleSettingsPanel());
-        document.getElementById('darkmode-btn').addEventListener('click', () => this.toggleDarkMode());
-        document.getElementById('expand-btn').addEventListener('click', () => this.toggleControlPanel());
+        this.boundHandlers.prevPage = () => this.prevPage();
+        this.boundHandlers.nextPage = () => this.nextPage();
+        this.boundHandlers.toggleViewMode = () => this.toggleViewMode();
+        this.boundHandlers.toggleThumbnailPanel = () => this.toggleThumbnailPanel();
+        this.boundHandlers.toggleFullscreen = () => this.toggleFullscreen();
+        this.boundHandlers.toggleSettingsPanel = () => this.toggleSettingsPanel();
+        this.boundHandlers.toggleDarkMode = () => this.toggleDarkMode();
+        this.boundHandlers.toggleControlPanel = () => this.toggleControlPanel();
+        
+        document.getElementById('prev-btn').addEventListener('click', this.boundHandlers.prevPage);
+        document.getElementById('next-btn').addEventListener('click', this.boundHandlers.nextPage);
+        document.getElementById('view-mode-btn').addEventListener('click', this.boundHandlers.toggleViewMode);
+        document.getElementById('thumbnail-btn').addEventListener('click', this.boundHandlers.toggleThumbnailPanel);
+        document.getElementById('fullscreen-btn').addEventListener('click', this.boundHandlers.toggleFullscreen);
+        document.getElementById('settings-btn').addEventListener('click', this.boundHandlers.toggleSettingsPanel);
+        document.getElementById('darkmode-btn').addEventListener('click', this.boundHandlers.toggleDarkMode);
+        document.getElementById('expand-btn').addEventListener('click', this.boundHandlers.toggleControlPanel);
         
         // パネル閉じるボタン
-        document.getElementById('thumbnail-close-btn').addEventListener('click', () => this.toggleThumbnailPanel());
-        document.getElementById('settings-close-btn').addEventListener('click', () => this.toggleSettingsPanel());
+        this.boundHandlers.closeThumbnail = () => this.toggleThumbnailPanel();
+        this.boundHandlers.closeSettings = () => this.toggleSettingsPanel();
+        document.getElementById('thumbnail-close-btn').addEventListener('click', this.boundHandlers.closeThumbnail);
+        document.getElementById('settings-close-btn').addEventListener('click', this.boundHandlers.closeSettings);
         
         // 設定項目
-        document.getElementById('animation-speed').addEventListener('input', (e) => this.updateAnimationSpeed(e.target.value));
-        document.getElementById('bg-color').addEventListener('input', (e) => this.updateBackgroundColor(e.target.value));
-        document.getElementById('auto-play').addEventListener('change', (e) => this.toggleAutoPlay(e.target.checked));
-        document.getElementById('auto-play-interval').addEventListener('input', (e) => this.updateAutoPlayInterval(e.target.value));
-        document.getElementById('reset-bookmark').addEventListener('click', () => this.resetBookmark());
+        this.boundHandlers.animationSpeed = (e) => this.updateAnimationSpeed(e.target.value);
+        this.boundHandlers.bgColor = (e) => this.updateBackgroundColor(e.target.value);
+        this.boundHandlers.autoPlay = (e) => this.toggleAutoPlay(e.target.checked);
+        this.boundHandlers.autoPlayInterval = (e) => this.updateAutoPlayInterval(e.target.value);
+        this.boundHandlers.resetBookmark = () => this.resetBookmark();
+        
+        document.getElementById('animation-speed').addEventListener('input', this.boundHandlers.animationSpeed);
+        document.getElementById('bg-color').addEventListener('input', this.boundHandlers.bgColor);
+        document.getElementById('auto-play').addEventListener('change', this.boundHandlers.autoPlay);
+        document.getElementById('auto-play-interval').addEventListener('input', this.boundHandlers.autoPlayInterval);
+        document.getElementById('reset-bookmark').addEventListener('click', this.boundHandlers.resetBookmark);
         
         // キーボード操作
-        document.addEventListener('keydown', (e) => this.handleKeyboard(e));
+        this.boundHandlers.keyboard = (e) => this.handleKeyboard(e);
+        document.addEventListener('keydown', this.boundHandlers.keyboard);
         
         // マウス操作（ページクリック）
-        this.viewer.addEventListener('click', (e) => this.handleViewerClick(e));
+        this.boundHandlers.viewerClick = (e) => this.handleViewerClick(e);
+        this.viewer.addEventListener('click', this.boundHandlers.viewerClick);
         
         // マウスホイール（ズーム）
-        this.viewer.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+        this.boundHandlers.wheel = (e) => this.handleWheel(e);
+        this.viewer.addEventListener('wheel', this.boundHandlers.wheel, { passive: false });
         
         // ドラッグ操作（パン）
-        this.viewer.addEventListener('mousedown', (e) => this.handlePanStart(e));
-        document.addEventListener('mousemove', (e) => this.handlePanMove(e));
-        document.addEventListener('mouseup', () => this.handlePanEnd());
+        this.boundHandlers.panStart = (e) => this.handlePanStart(e);
+        this.boundHandlers.panMove = (e) => this.handlePanMove(e);
+        this.boundHandlers.panEnd = () => this.handlePanEnd();
+        this.viewer.addEventListener('mousedown', this.boundHandlers.panStart);
+        document.addEventListener('mousemove', this.boundHandlers.panMove);
+        document.addEventListener('mouseup', this.boundHandlers.panEnd);
         
         // タッチ操作
-        this.viewer.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-        this.viewer.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.viewer.addEventListener('touchend', (e) => this.handleTouchEnd(e), { passive: false });
+        this.boundHandlers.touchStart = (e) => this.handleTouchStart(e);
+        this.boundHandlers.touchMove = (e) => this.handleTouchMove(e);
+        this.boundHandlers.touchEnd = (e) => this.handleTouchEnd(e);
+        this.viewer.addEventListener('touchstart', this.boundHandlers.touchStart, { passive: false });
+        this.viewer.addEventListener('touchmove', this.boundHandlers.touchMove, { passive: false });
+        this.viewer.addEventListener('touchend', this.boundHandlers.touchEnd, { passive: false });
         
         // 進捗バークリック
-        document.getElementById('progress-container').addEventListener('click', (e) => this.handleProgressBarClick(e));
+        this.boundHandlers.progressBarClick = (e) => this.handleProgressBarClick(e);
+        document.getElementById('progress-container').addEventListener('click', this.boundHandlers.progressBarClick);
         
         // ページ遷移前にブックマーク保存
-        window.addEventListener('beforeunload', () => this.saveBookmark());
+        this.boundHandlers.beforeUnload = () => this.saveBookmark();
+        window.addEventListener('beforeunload', this.boundHandlers.beforeUnload);
         
         // ウィンドウリサイズ
-        window.addEventListener('resize', () => this.handleResize());
+        this.boundHandlers.resize = () => this.handleResize();
+        window.addEventListener('resize', this.boundHandlers.resize);
+    }
+    
+    cleanup() {
+        // イベントリスナーを削除
+        document.getElementById('prev-btn').removeEventListener('click', this.boundHandlers.prevPage);
+        document.getElementById('next-btn').removeEventListener('click', this.boundHandlers.nextPage);
+        document.getElementById('view-mode-btn').removeEventListener('click', this.boundHandlers.toggleViewMode);
+        document.getElementById('thumbnail-btn').removeEventListener('click', this.boundHandlers.toggleThumbnailPanel);
+        document.getElementById('fullscreen-btn').removeEventListener('click', this.boundHandlers.toggleFullscreen);
+        document.getElementById('settings-btn').removeEventListener('click', this.boundHandlers.toggleSettingsPanel);
+        document.getElementById('darkmode-btn').removeEventListener('click', this.boundHandlers.toggleDarkMode);
+        document.getElementById('expand-btn').removeEventListener('click', this.boundHandlers.toggleControlPanel);
         
-        // マウス移動での自動展開は廃止
+        document.getElementById('thumbnail-close-btn').removeEventListener('click', this.boundHandlers.closeThumbnail);
+        document.getElementById('settings-close-btn').removeEventListener('click', this.boundHandlers.closeSettings);
+        
+        document.getElementById('animation-speed').removeEventListener('input', this.boundHandlers.animationSpeed);
+        document.getElementById('bg-color').removeEventListener('input', this.boundHandlers.bgColor);
+        document.getElementById('auto-play').removeEventListener('change', this.boundHandlers.autoPlay);
+        document.getElementById('auto-play-interval').removeEventListener('input', this.boundHandlers.autoPlayInterval);
+        document.getElementById('reset-bookmark').removeEventListener('click', this.boundHandlers.resetBookmark);
+        
+        document.removeEventListener('keydown', this.boundHandlers.keyboard);
+        
+        this.viewer.removeEventListener('click', this.boundHandlers.viewerClick);
+        this.viewer.removeEventListener('wheel', this.boundHandlers.wheel);
+        this.viewer.removeEventListener('mousedown', this.boundHandlers.panStart);
+        document.removeEventListener('mousemove', this.boundHandlers.panMove);
+        document.removeEventListener('mouseup', this.boundHandlers.panEnd);
+        
+        this.viewer.removeEventListener('touchstart', this.boundHandlers.touchStart);
+        this.viewer.removeEventListener('touchmove', this.boundHandlers.touchMove);
+        this.viewer.removeEventListener('touchend', this.boundHandlers.touchEnd);
+        
+        document.getElementById('progress-container').removeEventListener('click', this.boundHandlers.progressBarClick);
+        
+        window.removeEventListener('beforeunload', this.boundHandlers.beforeUnload);
+        window.removeEventListener('resize', this.boundHandlers.resize);
+        window.removeEventListener('resize', this.boundHandlers.updateViewport);
+        
+        if (window.visualViewport) {
+            window.visualViewport.removeEventListener('resize', this.boundHandlers.updateViewport);
+            window.visualViewport.removeEventListener('scroll', this.boundHandlers.updateViewport);
+        }
+        
+        // 自動再生を停止
+        this.stopAutoPlay();
+        
+        // しおりを保存
+        this.saveBookmark();
+        
+        // パネルを閉じる
+        document.getElementById('thumbnail-panel').classList.add('hidden');
+        document.getElementById('settings-panel').classList.add('hidden');
     }
     
     isMobile() {
         return window.innerWidth < 768;
     }
     
-    
     toggleControlPanel() {
         if (this.isMobile()) {
-            // モバイル：展開/縮小切替（自動非表示なし）
             this.isControlPanelExpanded = !this.isControlPanelExpanded;
             if (this.isControlPanelExpanded) {
                 this.controlPanel.classList.add('expanded');
@@ -206,7 +575,6 @@ class MangaViewer {
                 this.controlPanel.classList.remove('expanded');
             }
         } else {
-            // デスクトップ：最小化/展開切替（自動非表示なし）
             this.isControlPanelMinimized = !this.isControlPanelMinimized;
             if (this.isControlPanelMinimized) {
                 this.controlPanel.classList.add('minimized');
@@ -218,10 +586,8 @@ class MangaViewer {
     }
     
     displayPage(direction = null) {
-        // アニメーションクラスを削除
         this.pageContainer.className = `page-container ${this.viewMode}-mode`;
         
-        // ズームとパンのリセット
         if (this.zoom === 1.0) {
             this.pageContainer.style.transform = '';
         } else {
@@ -230,35 +596,27 @@ class MangaViewer {
         
         this.pageContainer.innerHTML = '';
         
-        // スライドアニメーション（方向が指定されている場合）
-        // ブラウザに強制的にリフローさせてからアニメーションを開始
         if (direction) {
-            // リフローを強制
             void this.pageContainer.offsetWidth;
-            // 次のフレームでアニメーションクラスを追加
             requestAnimationFrame(() => {
                 this.pageContainer.classList.add(direction);
             });
         }
         
         if (this.viewMode === 'single') {
-            // 単ページ表示
             const img = document.createElement('img');
             img.src = this.images[this.currentPage];
             img.alt = `ページ ${this.currentPage + 1}`;
             this.pageContainer.appendChild(img);
         } else {
-            // 見開き表示（日本式：右から左へ読む）
             const isMobile = window.innerWidth < 768;
             
             if (isMobile) {
-                // モバイルでは単ページ表示
                 const img = document.createElement('img');
                 img.src = this.images[this.currentPage];
                 img.alt = `ページ ${this.currentPage + 1}`;
                 this.pageContainer.appendChild(img);
             } else {
-                // 右側（日本式：先に読むページ = currentPage）
                 if (this.currentPage < this.images.length) {
                     const rightImg = document.createElement('img');
                     rightImg.src = this.images[this.currentPage];
@@ -266,7 +624,6 @@ class MangaViewer {
                     this.pageContainer.appendChild(rightImg);
                 }
                 
-                // 左側（日本式：後に読むページ = currentPage + 1）
                 if (this.currentPage + 1 < this.images.length) {
                     const leftImg = document.createElement('img');
                     leftImg.src = this.images[this.currentPage + 1];
@@ -289,10 +646,8 @@ class MangaViewer {
     
     canGoNext() {
         if (this.viewMode === 'spread' && window.innerWidth >= 768) {
-            // 見開き表示：次のページペアが存在するか
             return this.currentPage + 2 < this.images.length;
         } else {
-            // 単ページ表示：次のページが存在するか
             return this.currentPage + 1 < this.images.length;
         }
     }
@@ -306,17 +661,14 @@ class MangaViewer {
             return;
         }
         
-        // スライドアウトアニメーション（右へ）
         this.pageContainer.classList.add('slide-out-right');
         
         setTimeout(() => {
             if (this.viewMode === 'spread' && window.innerWidth >= 768) {
-                // 見開き表示では2ページ進む
                 this.currentPage = Math.min(this.currentPage + 2, this.images.length - 1);
             } else {
                 this.currentPage = Math.min(this.currentPage + 1, this.images.length - 1);
             }
-            // スライドインアニメーション（左から）
             this.displayPage('slide-in-left');
             this.saveBookmark();
         }, this.animationSpeed * 1000);
@@ -327,17 +679,14 @@ class MangaViewer {
             return;
         }
         
-        // スライドアウトアニメーション（左へ）
         this.pageContainer.classList.add('slide-out-left');
         
         setTimeout(() => {
             if (this.viewMode === 'spread' && window.innerWidth >= 768) {
-                // 見開き表示では2ページ戻る
                 this.currentPage = Math.max(this.currentPage - 2, 0);
             } else {
                 this.currentPage = Math.max(this.currentPage - 1, 0);
             }
-            // スライドインアニメーション（右から）
             this.displayPage('slide-in-right');
             this.saveBookmark();
         }, this.animationSpeed * 1000);
@@ -368,7 +717,6 @@ class MangaViewer {
         const targetPage = Math.max(0, Math.min(pageIndex, this.images.length - 1));
         
         if (withAnimation) {
-            // ジャンプ時の方向を決定
             const direction = targetPage > this.currentPage ? 'slide-out-right' : 'slide-out-left';
             const inDirection = targetPage > this.currentPage ? 'slide-in-left' : 'slide-in-right';
             
@@ -396,6 +744,11 @@ class MangaViewer {
         this.isDarkMode = !this.isDarkMode;
         document.body.classList.toggle('dark-mode');
         this.saveSettings();
+        
+        // ライブラリ設定も更新
+        const librarySettings = JSON.parse(localStorage.getItem('mangaLibrary_settings') || '{}');
+        librarySettings.isDarkMode = this.isDarkMode;
+        localStorage.setItem('mangaLibrary_settings', JSON.stringify(librarySettings));
     }
     
     toggleThumbnailPanel() {
@@ -419,7 +772,11 @@ class MangaViewer {
     }
     
     handleKeyboard(e) {
-        // パネルが開いている場合はキーボード操作を無効化
+        // ビューワ画面が非表示の場合は無視
+        if (document.getElementById('viewer-screen').classList.contains('hidden')) {
+            return;
+        }
+        
         const thumbnailPanel = document.getElementById('thumbnail-panel');
         const settingsPanel = document.getElementById('settings-panel');
         if (!thumbnailPanel.classList.contains('hidden') || !settingsPanel.classList.contains('hidden')) {
@@ -429,13 +786,13 @@ class MangaViewer {
         switch(e.key) {
             case 'ArrowLeft':
             case ' ':
-            case 'Spacebar': // 古いブラウザ対応
+            case 'Spacebar':
                 e.preventDefault();
-                this.nextPage(); // 日本式：左が次
+                this.nextPage();
                 break;
             case 'ArrowRight':
                 e.preventDefault();
-                this.prevPage(); // 日本式：右が前
+                this.prevPage();
                 break;
             case 'f':
             case 'F':
@@ -460,17 +817,22 @@ class MangaViewer {
                 e.preventDefault();
                 this.goToPage(this.images.length - 1);
                 break;
+            case 'Escape':
+                e.preventDefault();
+                // ライブラリに戻る
+                if (window.bookLibrary) {
+                    window.bookLibrary.showLibrary();
+                }
+                break;
         }
     }
     
     handleViewerClick(e) {
-        // タッチイベントが処理された直後はクリックを無視
         if (this.touchHandled) {
             this.touchHandled = false;
             return;
         }
         
-        // ズーム中はクリックでページ遷移しない
         if (this.zoom > 1.0) {
             return;
         }
@@ -480,9 +842,9 @@ class MangaViewer {
         const centerX = rect.width / 2;
         
         if (clickX < centerX) {
-            this.nextPage(); // 左半分クリック→次ページ（日本式）
+            this.nextPage();
         } else {
-            this.prevPage(); // 右半分クリック→前ページ（日本式）
+            this.prevPage();
         }
     }
     
@@ -497,7 +859,6 @@ class MangaViewer {
             this.applyZoom();
             this.showZoomInfo();
             
-            // ズーム状態によってカーソルを変更
             if (this.zoom > 1.0) {
                 this.viewer.classList.add('zoomed');
             } else {
@@ -555,13 +916,11 @@ class MangaViewer {
     
     handleTouchStart(e) {
         if (e.touches.length === 1) {
-            // シングルタッチ（スワイプ）
             this.touchStart = {
                 x: e.touches[0].clientX,
                 y: e.touches[0].clientY
             };
         } else if (e.touches.length === 2) {
-            // ピンチズーム
             e.preventDefault();
             const distance = this.getTouchDistance(e.touches[0], e.touches[1]);
             this.touchStartDistance = distance;
@@ -571,7 +930,6 @@ class MangaViewer {
     
     handleTouchMove(e) {
         if (e.touches.length === 2) {
-            // ピンチズーム
             e.preventDefault();
             const distance = this.getTouchDistance(e.touches[0], e.touches[1]);
             const scale = distance / this.touchStartDistance;
@@ -602,15 +960,13 @@ class MangaViewer {
             const deltaX = touchEnd.x - this.touchStart.x;
             const deltaY = touchEnd.y - this.touchStart.y;
             
-            // 横スワイプが縦スワイプより大きい場合のみページ遷移
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
-                // スワイプが検出されたらフラグを立てる
                 this.touchHandled = true;
                 
                 if (deltaX > 0) {
-                    this.nextPage(); // 左から右へスワイプ→次ページ
+                    this.nextPage();
                 } else {
-                    this.prevPage(); // 右から左へスワイプ→前ページ
+                    this.prevPage();
                 }
             }
             
@@ -627,10 +983,9 @@ class MangaViewer {
     handleProgressBarClick(e) {
         const rect = e.currentTarget.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
-        // 日本式：右端=最初のページ、左端=最後のページ
         const clickRatio = 1 - (clickX / rect.width);
         const pageIndex = Math.floor(clickRatio * this.images.length);
-        this.goToPage(pageIndex, true); // アニメーション付きでジャンプ
+        this.goToPage(pageIndex, true);
     }
     
     generateThumbnails() {
@@ -656,7 +1011,7 @@ class MangaViewer {
             item.appendChild(label);
             
             item.addEventListener('click', () => {
-                this.goToPage(index, true); // アニメーション付きでジャンプ
+                this.goToPage(index, true);
                 this.toggleThumbnailPanel();
             });
             
@@ -665,7 +1020,7 @@ class MangaViewer {
     }
     
     updateThumbnailHighlight() {
-        const items = document.querySelectorAll('.thumbnail-item');
+        const items = document.querySelectorAll('#thumbnail-grid .thumbnail-item');
         items.forEach((item, index) => {
             if (index === this.currentPage) {
                 item.classList.add('active');
@@ -710,7 +1065,7 @@ class MangaViewer {
         this.stopAutoPlay();
         this.autoPlayInterval = setInterval(() => {
             if (!this.canGoNext()) {
-                this.goToPage(0); // 最後まで行ったら最初に戻る
+                this.goToPage(0);
             } else {
                 this.nextPage();
             }
@@ -725,16 +1080,16 @@ class MangaViewer {
     }
     
     resetBookmark() {
-        localStorage.removeItem('mangaViewer_bookmark');
+        localStorage.removeItem(`mangaViewer_bookmark_${this.bookId}`);
         alert('しおりをリセットしました');
     }
     
     saveBookmark() {
-        localStorage.setItem('mangaViewer_bookmark', this.currentPage);
+        localStorage.setItem(`mangaViewer_bookmark_${this.bookId}`, this.currentPage);
     }
     
     loadBookmark() {
-        const bookmark = localStorage.getItem('mangaViewer_bookmark');
+        const bookmark = localStorage.getItem(`mangaViewer_bookmark_${this.bookId}`);
         if (bookmark !== null) {
             this.currentPage = parseInt(bookmark);
         }
@@ -756,7 +1111,6 @@ class MangaViewer {
         if (settingsJson) {
             try {
                 const settings = JSON.parse(settingsJson);
-                this.isDarkMode = settings.isDarkMode || false;
                 this.viewMode = settings.viewMode || 'single';
                 this.animationSpeed = settings.animationSpeed || 0.3;
                 this.isControlPanelMinimized = settings.isControlPanelMinimized || false;
@@ -766,9 +1120,6 @@ class MangaViewer {
                     document.getElementById('bg-color').value = settings.backgroundColor;
                 }
                 
-                // デスクトップでは常に最小化状態からスタート（設定は無視）
-                
-                // UI要素の更新
                 document.getElementById('animation-speed').value = this.animationSpeed;
                 document.getElementById('animation-speed-value').textContent = `${this.animationSpeed}s`;
             } catch (e) {
@@ -778,24 +1129,22 @@ class MangaViewer {
     }
     
     handleResize() {
-        // リサイズ時にページ表示を更新
         this.displayPage();
         
-        // モバイル⇔デスクトップ切替時にコントロールパネルの状態をリセット
         if (this.isMobile()) {
             this.controlPanel.classList.remove('minimized');
             this.isControlPanelExpanded = false;
         } else {
             this.controlPanel.classList.remove('expanded');
-            // デスクトップでは常に最小化状態からスタート
             this.controlPanel.classList.add('minimized');
             this.isControlPanelMinimized = true;
         }
     }
 }
 
+// ========================================
 // アプリケーション初期化
+// ========================================
 document.addEventListener('DOMContentLoaded', () => {
-    const viewer = new MangaViewer();
+    window.bookLibrary = new BookLibrary();
 });
-

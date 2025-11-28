@@ -765,6 +765,421 @@ body.dark-mode .setting-item input[type="number"] {
     }
 }
 
+/* ========================================
+   ブック選択画面（ライブラリ）
+   ======================================== */
+
+/* ライブラリ画面 */
+.library-screen {
+    width: 100vw;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: var(--bg-color-light);
+    touch-action: pan-y;
+}
+
+body.dark-mode .library-screen {
+    background-color: var(--bg-color-dark);
+}
+
+/* ライブラリヘッダー */
+.library-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background-color: var(--panel-bg-light);
+    border-bottom: 1px solid var(--border-color-light);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+body.dark-mode .library-header {
+    background-color: var(--panel-bg-dark);
+    border-bottom-color: var(--border-color-dark);
+}
+
+.library-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-color-light);
+    letter-spacing: -0.5px;
+}
+
+body.dark-mode .library-title {
+    color: var(--text-color-dark);
+}
+
+.library-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.library-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-light);
+    transition: background-color 0.2s ease-in-out;
+}
+
+body.dark-mode .library-btn {
+    color: var(--text-color-dark);
+}
+
+.library-btn:hover {
+    background-color: rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .library-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.library-btn:active {
+    transform: scale(0.95);
+}
+
+.library-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* ブックグリッド */
+.book-grid {
+    display: grid;
+    gap: 24px;
+    padding: 24px;
+    min-height: calc(100vh - 80px);
+}
+
+/* グリッド表示 */
+.book-grid.grid-view {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+/* リスト表示 */
+.book-grid.list-view {
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+/* ブックカード */
+.book-card {
+    cursor: pointer;
+    border-radius: 12px;
+    overflow: hidden;
+    background-color: var(--panel-bg-light);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+body.dark-mode .book-card {
+    background-color: var(--panel-bg-dark);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.book-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+body.dark-mode .book-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.book-card:active {
+    transform: translateY(-2px);
+}
+
+/* グリッド表示のカード */
+.grid-view .book-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.grid-view .book-cover-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    overflow: hidden;
+}
+
+.grid-view .book-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.grid-view .book-info {
+    padding: 12px;
+}
+
+.grid-view .book-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.grid-view .book-meta {
+    font-size: 12px;
+    color: #888;
+}
+
+/* リスト表示のカード */
+.list-view .book-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    padding: 12px;
+    gap: 16px;
+}
+
+.list-view .book-cover-container {
+    position: relative;
+    width: 60px;
+    height: 90px;
+    flex-shrink: 0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.list-view .book-cover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.list-view .book-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.list-view .book-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.list-view .book-meta {
+    font-size: 13px;
+    color: #888;
+}
+
+/* 読了バッジ */
+.book-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+}
+
+.book-badge.completed {
+    background-color: var(--highlight-color);
+}
+
+.book-badge.reading {
+    background-color: #ff9800;
+}
+
+/* リスト表示のバッジ位置調整 */
+.list-view .book-badge {
+    top: 4px;
+    right: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+}
+
+/* ブックがない場合 */
+.no-books {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #888;
+    font-size: 16px;
+}
+
+/* ライブラリローディング */
+.library-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 60px 20px;
+    color: #888;
+}
+
+.library-loading.hidden {
+    display: none;
+}
+
+.library-loading p {
+    font-size: 14px;
+}
+
+/* ビューワ画面 */
+.viewer-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10;
+    background-color: var(--bg-color-light);
+}
+
+body.dark-mode .viewer-screen {
+    background-color: var(--bg-color-dark);
+}
+
+.viewer-screen.hidden {
+    display: none;
+}
+
+/* 戻るボタン */
+.back-btn {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 102;
+    background-color: var(--control-bg-light);
+    border: none;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color-light);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: background-color 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
+body.dark-mode .back-btn {
+    background-color: var(--control-bg-dark);
+    color: var(--text-color-dark);
+}
+
+.back-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    transform: scale(1.05);
+}
+
+body.dark-mode .back-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.back-btn:active {
+    transform: scale(0.95);
+}
+
+.back-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* モバイル向けライブラリ調整 */
+@media (max-width: 767px) {
+    .library-header {
+        padding: 16px 16px;
+    }
+    
+    .library-title {
+        font-size: 20px;
+    }
+    
+    .book-grid {
+        padding: 16px;
+        gap: 16px;
+    }
+    
+    .book-grid.grid-view {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    }
+    
+    .grid-view .book-info {
+        padding: 10px;
+    }
+    
+    .grid-view .book-title {
+        font-size: 13px;
+    }
+    
+    .grid-view .book-meta {
+        font-size: 11px;
+    }
+    
+    .list-view .book-card {
+        padding: 10px;
+        gap: 12px;
+    }
+    
+    .list-view .book-cover-container {
+        width: 50px;
+        height: 75px;
+    }
+    
+    .list-view .book-title {
+        font-size: 14px;
+    }
+    
+    .list-view .book-meta {
+        font-size: 12px;
+    }
+    
+    .back-btn {
+        top: 8px;
+        left: 8px;
+        padding: 8px;
+    }
+    
+    .back-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+/* タブレット向け調整 */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .book-grid.grid-view {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+}
+
+/* デスクトップ向け調整 */
+@media (min-width: 1024px) {
+    .book-grid {
+        padding: 32px;
+        gap: 28px;
+    }
+    
+    .book-grid.grid-view {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    
+    .library-header {
+        padding: 24px 32px;
+    }
+}
+
 /* アクセシビリティ */
 @media (prefers-reduced-motion: reduce) {
     * {
